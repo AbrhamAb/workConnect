@@ -1,0 +1,52 @@
+package response
+
+import "task-management-backend/internal/model/db"
+
+type AuthResponse struct {
+	Token string  `json:"token"`
+	User  db.User `json:"user"`
+}
+
+type ProfileResponse struct {
+	User db.User `json:"user"`
+}
+
+type WorkerListResponse struct {
+	Workers []db.WorkerCard `json:"workers"`
+}
+
+type WorkerDetailsResponse struct {
+	Worker db.WorkerDetails `json:"worker"`
+}
+
+type ServiceRequestResponse struct {
+	Request db.ServiceRequestView `json:"request"`
+}
+
+type ServiceRequestListResponse struct {
+	Requests []db.ServiceRequestView `json:"requests"`
+}
+
+type CustomerDashboardResponse struct {
+	Summary db.CustomerDashboard `json:"summary"`
+}
+
+type WorkerDashboardResponse struct {
+	Summary db.WorkerDashboard `json:"summary"`
+}
+
+type AdminDashboardResponse struct {
+	Summary db.AdminDashboard `json:"summary"`
+}
+
+type PendingWorkersResponse struct {
+	Workers []db.WorkerCard `json:"workers"`
+}
+
+type PaymentResponse struct {
+	Payment db.Payment `json:"payment"`
+}
+
+type MessageResponse struct {
+	Message string `json:"message"`
+}
