@@ -518,6 +518,194 @@ func (s *Store) InitiatePayment(ctx context.Context, requestID int64, amount flo
 	return payment, err
 }
 
+func (s *Store) GetRequestMessagingParticipants(ctx context.Context, requestID int64) (int64, int64, string, error) {
+	q := `
+		SELECT sr.customer_id, wp.user_id, sr.status
+		FROM service_requests sr
+		INNER JOIN worker_profiles wp ON wp.id = sr.worker_id
+		WHERE sr.id = $1
+	`
+
+	var customerUserID, workerUserID int64
+	var status string
+	err := s.db.QueryRowContext(ctx, q, requestID).Scan(&customerUserID, &workerUserID, &status)
+	if err != nil {
+		return 0, 0, "", err
+	}
+
+	return customerUserID, workerUserID, status, nil
+}
+
+func (s *Store) UpsertMessageConversation(ctx context.Context, requestID, customerUserID, workerUserID int64) (int64, error) {
+	q := `
+		INSERT INTO message_conversations (request_id, customer_user_id, worker_user_id, updated_at)
+		VALUES ($1, $2, $3, NOW())
+		ON CONFLICT (request_id)
+		DO UPDATE SET customer_user_id = EXCLUDED.customer_user_id,
+		              worker_user_id = EXCLUDED.worker_user_id,
+		              updated_at = NOW()
+		RETURNING id
+	`
+
+	var conversationID int64
+	if err := s.db.QueryRowContext(ctx, q, requestID, customerUserID, workerUserID).Scan(&conversationID); err != nil {
+		return 0, err
+	}
+
+	qRead := `
+		INSERT INTO message_conversation_reads (conversation_id, user_id, last_read_at)
+		VALUES ($1, $2, NOW()), ($1, $3, NOW())
+		ON CONFLICT (conversation_id, user_id) DO NOTHING
+	`
+	if _, err := s.db.ExecContext(ctx, qRead, conversationID, customerUserID, workerUserID); err != nil {
+		return 0, err
+	}
+
+	return conversationID, nil
+}
+
+func (s *Store) ListMessageConversations(ctx context.Context, userID int64) ([]db.MessageConversation, error) {
+	q := `
+		SELECT
+			c.id,
+			c.request_id,
+			CASE WHEN c.customer_user_id = $1 THEN c.worker_user_id ELSE c.customer_user_id END AS other_party_user_id,
+			u.full_name AS other_party_name,
+			c.last_message_preview,
+			c.last_message_at,
+			COALESCE((
+				SELECT COUNT(*)::int
+				FROM messages m
+				LEFT JOIN message_conversation_reads r
+					ON r.conversation_id = c.id AND r.user_id = $1
+				WHERE m.conversation_id = c.id
+				  AND m.sender_user_id <> $1
+				  AND (r.last_read_message_id IS NULL OR m.id > r.last_read_message_id)
+			), 0) AS unread_count
+		FROM message_conversations c
+		INNER JOIN users u
+			ON u.id = CASE WHEN c.customer_user_id = $1 THEN c.worker_user_id ELSE c.customer_user_id END
+		WHERE c.customer_user_id = $1 OR c.worker_user_id = $1
+		ORDER BY COALESCE(c.last_message_at, c.created_at) DESC
+	`
+
+	rows, err := s.db.QueryContext(ctx, q, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]db.MessageConversation, 0)
+	for rows.Next() {
+		var item db.MessageConversation
+		if err = rows.Scan(
+			&item.ID,
+			&item.RequestID,
+			&item.OtherPartyUserID,
+			&item.OtherPartyName,
+			&item.LastMessagePreview,
+			&item.LastMessageAt,
+			&item.UnreadCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+
+	return items, rows.Err()
+}
+
+func (s *Store) CreateMessage(ctx context.Context, conversationID, requestID, senderUserID int64, body, messageType string) (db.Message, error) {
+	q := `
+		WITH inserted AS (
+			INSERT INTO messages (conversation_id, request_id, sender_user_id, body, message_type)
+			VALUES ($1, $2, $3, $4, $5)
+			RETURNING id, conversation_id, request_id, sender_user_id, body, message_type, created_at
+		)
+		SELECT i.id, i.conversation_id, i.request_id, i.sender_user_id, u.full_name, i.body, i.message_type, i.created_at
+		FROM inserted i
+		INNER JOIN users u ON u.id = i.sender_user_id
+	`
+
+	var item db.Message
+	err := s.db.QueryRowContext(ctx, q, conversationID, requestID, senderUserID, body, messageType).Scan(
+		&item.ID,
+		&item.ConversationID,
+		&item.RequestID,
+		&item.SenderUserID,
+		&item.SenderName,
+		&item.Body,
+		&item.MessageType,
+		&item.CreatedAt,
+	)
+	return item, err
+}
+
+func (s *Store) ListMessages(ctx context.Context, conversationID int64, limit int, beforeID int64) ([]db.Message, error) {
+	q := `
+		SELECT m.id, m.conversation_id, m.request_id, m.sender_user_id, u.full_name, m.body, m.message_type, m.created_at
+		FROM messages m
+		INNER JOIN users u ON u.id = m.sender_user_id
+		WHERE m.conversation_id = $1
+		  AND ($2 = 0 OR m.id < $2)
+		ORDER BY m.id DESC
+		LIMIT $3
+	`
+
+	rows, err := s.db.QueryContext(ctx, q, conversationID, beforeID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]db.Message, 0)
+	for rows.Next() {
+		var item db.Message
+		if err = rows.Scan(
+			&item.ID,
+			&item.ConversationID,
+			&item.RequestID,
+			&item.SenderUserID,
+			&item.SenderName,
+			&item.Body,
+			&item.MessageType,
+			&item.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	for i, j := 0, len(items)-1; i < j; i, j = i+1, j-1 {
+		items[i], items[j] = items[j], items[i]
+	}
+
+	return items, nil
+}
+
+func (s *Store) MarkConversationRead(ctx context.Context, conversationID, userID int64) error {
+	q := `
+		WITH latest AS (
+			SELECT id
+			FROM messages
+			WHERE conversation_id = $1
+			ORDER BY id DESC
+			LIMIT 1
+		)
+		INSERT INTO message_conversation_reads (conversation_id, user_id, last_read_message_id, last_read_at)
+		VALUES ($1, $2, (SELECT id FROM latest), NOW())
+		ON CONFLICT (conversation_id, user_id)
+		DO UPDATE SET last_read_message_id = EXCLUDED.last_read_message_id,
+		              last_read_at = NOW()
+	`
+
+	_, err := s.db.ExecContext(ctx, q, conversationID, userID)
+	return err
+}
+
 func (s *Store) CustomerDashboard(ctx context.Context, customerID int64) (db.CustomerDashboard, error) {
 	q := `
 		SELECT

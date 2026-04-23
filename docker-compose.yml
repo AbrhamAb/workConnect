@@ -1,37 +1,13 @@
 services:
-  db:
-    image: postgres:16-alpine
-    container_name: task_management_db
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: task_management
-      POSTGRES_USER: task_user
-      POSTGRES_PASSWORD: task_password
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U task_user -d task_management"]
-      interval: 5s
-      timeout: 5s
-      retries: 8
-
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: task_management_backend
     restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
     environment:
-      PORT: "8080"
-      JWT_SECRET: "change-me-in-prod"
-      DATABASE_URL: "postgres://task_user:task_password@db:5432/task_management?sslmode=disable"
+      PORT: ${PORT:-8080}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
+      DATABASE_URL: ${DATABASE_URL}
     ports:
       - "8080:8080"
-
-volumes:
-  postgres_data:

@@ -47,3 +47,13 @@ type InitiatePaymentRequest struct {
 	Provider  string  `json:"provider"`
 	AmountETB float64 `json:"amountEtb"`
 }
+
+type SendMessageRequest struct {
+	Body        string `json:"body"`
+	MessageType string `json:"messageType"`
+}
+
+type ListMessagesQuery struct {
+	Limit    int   `json:"limit"`
+	BeforeID int64 `json:"beforeId"`
+}

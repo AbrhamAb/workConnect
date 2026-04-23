@@ -172,6 +172,12 @@ func (m *WorkConnectModule) WorkerDecision(ctx context.Context, workerUserID, re
 	if persistence.IsNotFound(err) {
 		return db.ServiceRequestView{}, apperrors.ErrInvalidState
 	}
+	if err == nil && status == db.RequestStatusAccepted {
+		customerUserID, assignedWorkerUserID, requestStatus, accessErr := m.store.GetRequestMessagingParticipants(ctx, requestID)
+		if accessErr == nil && messagingAllowedRequestStatus(requestStatus) {
+			_, _ = m.store.UpsertMessageConversation(ctx, requestID, customerUserID, assignedWorkerUserID)
+		}
+	}
 	return item, err
 }
 
@@ -253,6 +259,92 @@ func (m *WorkConnectModule) VerifyWorker(ctx context.Context, workerID int64, ve
 		return err
 	}
 	return nil
+}
+
+func (m *WorkConnectModule) ListMessageConversations(ctx context.Context, userID int64) ([]db.MessageConversation, error) {
+	return m.store.ListMessageConversations(ctx, userID)
+}
+
+func (m *WorkConnectModule) ListMessagesByRequest(ctx context.Context, userID, requestID int64, query dto.ListMessagesQuery) ([]db.Message, error) {
+	if query.Limit == 0 {
+		query.Limit = 50
+	}
+	if err := query.Validate(); err != nil {
+		return nil, err
+	}
+
+	customerUserID, workerUserID, status, err := m.store.GetRequestMessagingParticipants(ctx, requestID)
+	if err != nil {
+		if persistence.IsNotFound(err) {
+			return nil, apperrors.ErrNotFound
+		}
+		return nil, err
+	}
+
+	if userID != customerUserID && userID != workerUserID {
+		return nil, apperrors.ErrForbidden
+	}
+
+	if !messagingAllowedRequestStatus(status) {
+		return nil, apperrors.ErrInvalidState
+	}
+
+	conversationID, err := m.store.UpsertMessageConversation(ctx, requestID, customerUserID, workerUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	items, err := m.store.ListMessages(ctx, conversationID, query.Limit, query.BeforeID)
+	if err != nil {
+		return nil, err
+	}
+
+	_ = m.store.MarkConversationRead(ctx, conversationID, userID)
+	return items, nil
+}
+
+func (m *WorkConnectModule) SendMessage(ctx context.Context, userID, requestID int64, req dto.SendMessageRequest) (db.Message, error) {
+	if err := req.Validate(); err != nil {
+		return db.Message{}, err
+	}
+
+	customerUserID, workerUserID, status, err := m.store.GetRequestMessagingParticipants(ctx, requestID)
+	if err != nil {
+		if persistence.IsNotFound(err) {
+			return db.Message{}, apperrors.ErrNotFound
+		}
+		return db.Message{}, err
+	}
+
+	if userID != customerUserID && userID != workerUserID {
+		return db.Message{}, apperrors.ErrForbidden
+	}
+
+	if !messagingAllowedRequestStatus(status) {
+		return db.Message{}, apperrors.ErrInvalidState
+	}
+
+	convoID, err := m.store.UpsertMessageConversation(ctx, requestID, customerUserID, workerUserID)
+	if err != nil {
+		return db.Message{}, err
+	}
+
+	messageType := strings.TrimSpace(req.MessageType)
+	if messageType == "" {
+		messageType = db.MessageTypeText
+	}
+
+	item, err := m.store.CreateMessage(ctx, convoID, requestID, userID, strings.TrimSpace(req.Body), messageType)
+	if err != nil {
+		return db.Message{}, err
+	}
+
+	_ = m.store.MarkConversationRead(ctx, convoID, userID)
+	return item, nil
+}
+
+func messagingAllowedRequestStatus(status string) bool {
+	return status == db.RequestStatusAccepted || status == db.RequestStatusCompleted
 }
 
 func (m *WorkConnectModule) ParseToken(tokenString string) (AuthPrincipal, error) {

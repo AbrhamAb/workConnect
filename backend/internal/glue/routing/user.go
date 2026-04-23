@@ -37,6 +37,14 @@ func RegisterWorkConnectRoutes(r chi.Router, handler *rest.Handler) {
 		worker.Get("/dashboard", handler.WorkerDashboard)
 	})
 
+	r.Route("/messages", func(messages chi.Router) {
+		messages.Use(middleware.Auth(handler.Module().WorkConnect))
+		messages.Use(middleware.RequireRoles(db.RoleCustomer, db.RoleWorker))
+		messages.Get("/conversations", handler.ListMessageConversations)
+		messages.Get("/requests/{requestID}", handler.ListMessagesByRequest)
+		messages.Post("/requests/{requestID}", handler.SendMessage)
+	})
+
 	r.Route("/admin", func(admin chi.Router) {
 		admin.Use(middleware.Auth(handler.Module().WorkConnect))
 		admin.Use(middleware.RequireRoles(db.RoleAdmin))

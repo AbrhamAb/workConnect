@@ -50,3 +50,15 @@ type PaymentResponse struct {
 type MessageResponse struct {
 	Message string `json:"message"`
 }
+
+type MessageConversationsResponse struct {
+	Conversations []db.MessageConversation `json:"conversations"`
+}
+
+type MessageListResponse struct {
+	Messages []db.Message `json:"messages"`
+}
+
+type MessageSendResponse struct {
+	Message db.Message `json:"message"`
+}

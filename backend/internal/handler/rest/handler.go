@@ -332,6 +332,95 @@ func (h *Handler) VerifyWorker(w nethttp.ResponseWriter, r *nethttp.Request) {
 	response.JSON(w, nethttp.StatusOK, response.MessageResponse{Message: "Worker verified"})
 }
 
+func (h *Handler) ListMessageConversations(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, ok := middleware.PrincipalFromContext(r.Context())
+	if !ok {
+		response.Error(w, nethttp.StatusUnauthorized, apperrors.ErrUnauthorized.Error())
+		return
+	}
+
+	items, err := h.Module().WorkConnect.ListMessageConversations(r.Context(), principal.UserID)
+	if err != nil {
+		h.writeError(w, err)
+		return
+	}
+
+	response.JSON(w, nethttp.StatusOK, response.MessageConversationsResponse{Conversations: items})
+}
+
+func (h *Handler) ListMessagesByRequest(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, ok := middleware.PrincipalFromContext(r.Context())
+	if !ok {
+		response.Error(w, nethttp.StatusUnauthorized, apperrors.ErrUnauthorized.Error())
+		return
+	}
+
+	requestID, err := parseIDParam(r, "requestID")
+	if err != nil {
+		response.Error(w, nethttp.StatusBadRequest, "invalid request id")
+		return
+	}
+
+	limit := 50
+	if limitRaw := r.URL.Query().Get("limit"); limitRaw != "" {
+		parsedLimit, parseErr := strconv.Atoi(limitRaw)
+		if parseErr != nil {
+			response.Error(w, nethttp.StatusBadRequest, "invalid limit")
+			return
+		}
+		limit = parsedLimit
+	}
+
+	var beforeID int64
+	if beforeRaw := r.URL.Query().Get("beforeId"); beforeRaw != "" {
+		parsedBeforeID, parseErr := strconv.ParseInt(beforeRaw, 10, 64)
+		if parseErr != nil {
+			response.Error(w, nethttp.StatusBadRequest, "invalid beforeId")
+			return
+		}
+		beforeID = parsedBeforeID
+	}
+
+	items, err := h.Module().WorkConnect.ListMessagesByRequest(r.Context(), principal.UserID, requestID, dto.ListMessagesQuery{
+		Limit:    limit,
+		BeforeID: beforeID,
+	})
+	if err != nil {
+		h.writeError(w, err)
+		return
+	}
+
+	response.JSON(w, nethttp.StatusOK, response.MessageListResponse{Messages: items})
+}
+
+func (h *Handler) SendMessage(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, ok := middleware.PrincipalFromContext(r.Context())
+	if !ok {
+		response.Error(w, nethttp.StatusUnauthorized, apperrors.ErrUnauthorized.Error())
+		return
+	}
+
+	requestID, err := parseIDParam(r, "requestID")
+	if err != nil {
+		response.Error(w, nethttp.StatusBadRequest, "invalid request id")
+		return
+	}
+
+	var req dto.SendMessageRequest
+	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, nethttp.StatusBadRequest, "invalid payload")
+		return
+	}
+
+	item, err := h.Module().WorkConnect.SendMessage(r.Context(), principal.UserID, requestID, req)
+	if err != nil {
+		h.writeError(w, err)
+		return
+	}
+
+	response.JSON(w, nethttp.StatusCreated, response.MessageSendResponse{Message: item})
+}
+
 func parseIDParam(r *nethttp.Request, paramName string) (int64, error) {
 	return strconv.ParseInt(chi.URLParam(r, paramName), 10, 64)
 }

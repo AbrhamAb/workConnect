@@ -19,6 +19,8 @@ const (
 	PaymentStatusPending = "pending"
 	PaymentStatusPaid    = "paid"
 	PaymentStatusFailed  = "failed"
+
+	MessageTypeText = "text"
 )
 
 type User struct {
@@ -130,4 +132,25 @@ type AdminDashboard struct {
 	PendingVerifications int `json:"pendingVerifications"`
 	TotalRequests        int `json:"totalRequests"`
 	OpenRequests         int `json:"openRequests"`
+}
+
+type MessageConversation struct {
+	ID                 int64      `json:"id"`
+	RequestID          int64      `json:"requestId"`
+	OtherPartyUserID   int64      `json:"otherPartyUserId"`
+	OtherPartyName     string     `json:"otherPartyName"`
+	LastMessagePreview string     `json:"lastMessagePreview"`
+	LastMessageAt      *time.Time `json:"lastMessageAt,omitempty"`
+	UnreadCount        int        `json:"unreadCount"`
+}
+
+type Message struct {
+	ID             int64     `json:"id"`
+	ConversationID int64     `json:"conversationId"`
+	RequestID      int64     `json:"requestId"`
+	SenderUserID   int64     `json:"senderUserId"`
+	SenderName     string    `json:"senderName"`
+	Body           string    `json:"body"`
+	MessageType    string    `json:"messageType"`
+	CreatedAt      time.Time `json:"createdAt"`
 }

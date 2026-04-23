@@ -186,6 +186,148 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
 
+		CREATE TABLE IF NOT EXISTS message_conversations (
+			id BIGSERIAL PRIMARY KEY,
+			request_id BIGINT NOT NULL UNIQUE REFERENCES service_requests(id) ON DELETE CASCADE,
+			customer_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			worker_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			last_message_preview VARCHAR(180) NOT NULL DEFAULT '',
+			last_message_at TIMESTAMPTZ,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			CHECK (customer_user_id <> worker_user_id)
+		);
+
+		CREATE TABLE IF NOT EXISTS messages (
+			id BIGSERIAL PRIMARY KEY,
+			conversation_id BIGINT NOT NULL REFERENCES message_conversations(id) ON DELETE CASCADE,
+			request_id BIGINT NOT NULL REFERENCES service_requests(id) ON DELETE CASCADE,
+			sender_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			body TEXT NOT NULL,
+			message_type VARCHAR(20) NOT NULL DEFAULT 'text' CHECK (message_type IN ('text')),
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
+
+		CREATE TABLE IF NOT EXISTS message_conversation_reads (
+			conversation_id BIGINT NOT NULL REFERENCES message_conversations(id) ON DELETE CASCADE,
+			user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			last_read_message_id BIGINT REFERENCES messages(id) ON DELETE SET NULL,
+			last_read_at TIMESTAMPTZ,
+			PRIMARY KEY (conversation_id, user_id)
+		);
+
+		CREATE OR REPLACE FUNCTION validate_message_conversation() RETURNS TRIGGER AS $$
+		DECLARE
+			request_customer_id BIGINT;
+			request_worker_user_id BIGINT;
+			request_status TEXT;
+		BEGIN
+			SELECT sr.customer_id, wp.user_id, sr.status
+			INTO request_customer_id, request_worker_user_id, request_status
+			FROM service_requests sr
+			INNER JOIN worker_profiles wp ON wp.id = sr.worker_id
+			WHERE sr.id = NEW.request_id;
+
+			IF request_status IS NULL THEN
+				RAISE EXCEPTION 'service request % not found', NEW.request_id;
+			END IF;
+
+			IF request_status NOT IN ('accepted', 'completed') THEN
+				RAISE EXCEPTION 'messaging allowed only for accepted or completed requests';
+			END IF;
+
+			IF NEW.customer_user_id <> request_customer_id OR NEW.worker_user_id <> request_worker_user_id THEN
+				RAISE EXCEPTION 'conversation participants must match request participants';
+			END IF;
+
+			RETURN NEW;
+		END;
+		$$ LANGUAGE plpgsql;
+
+		CREATE OR REPLACE FUNCTION validate_message_sender() RETURNS TRIGGER AS $$
+		DECLARE
+			conversation_customer_id BIGINT;
+			conversation_worker_id BIGINT;
+			conversation_request_id BIGINT;
+		BEGIN
+			SELECT c.customer_user_id, c.worker_user_id, c.request_id
+			INTO conversation_customer_id, conversation_worker_id, conversation_request_id
+			FROM message_conversations c
+			WHERE c.id = NEW.conversation_id;
+
+			IF conversation_request_id IS NULL THEN
+				RAISE EXCEPTION 'conversation % not found', NEW.conversation_id;
+			END IF;
+
+			IF NEW.request_id <> conversation_request_id THEN
+				RAISE EXCEPTION 'message request_id must match conversation request_id';
+			END IF;
+
+			IF NEW.sender_user_id <> conversation_customer_id AND NEW.sender_user_id <> conversation_worker_id THEN
+				RAISE EXCEPTION 'sender is not part of this conversation';
+			END IF;
+
+			RETURN NEW;
+		END;
+		$$ LANGUAGE plpgsql;
+
+		CREATE OR REPLACE FUNCTION sync_conversation_last_message() RETURNS TRIGGER AS $$
+		BEGIN
+			UPDATE message_conversations
+			SET last_message_preview = LEFT(NEW.body, 180),
+				last_message_at = NEW.created_at,
+				updated_at = NOW()
+			WHERE id = NEW.conversation_id;
+
+			RETURN NEW;
+		END;
+		$$ LANGUAGE plpgsql;
+
+		DO $$
+		BEGIN
+			IF NOT EXISTS (
+				SELECT 1
+				FROM pg_trigger
+				WHERE tgname = 'trg_validate_message_conversation'
+			) THEN
+				CREATE TRIGGER trg_validate_message_conversation
+				BEFORE INSERT OR UPDATE ON message_conversations
+				FOR EACH ROW
+				EXECUTE FUNCTION validate_message_conversation();
+			END IF;
+		END
+		$$;
+
+		DO $$
+		BEGIN
+			IF NOT EXISTS (
+				SELECT 1
+				FROM pg_trigger
+				WHERE tgname = 'trg_validate_message_sender'
+			) THEN
+				CREATE TRIGGER trg_validate_message_sender
+				BEFORE INSERT ON messages
+				FOR EACH ROW
+				EXECUTE FUNCTION validate_message_sender();
+			END IF;
+		END
+		$$;
+
+		DO $$
+		BEGIN
+			IF NOT EXISTS (
+				SELECT 1
+				FROM pg_trigger
+				WHERE tgname = 'trg_sync_conversation_last_message'
+			) THEN
+				CREATE TRIGGER trg_sync_conversation_last_message
+				AFTER INSERT ON messages
+				FOR EACH ROW
+				EXECUTE FUNCTION sync_conversation_last_message();
+			END IF;
+		END
+		$$;
+
 		CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 		CREATE INDEX IF NOT EXISTS idx_worker_profiles_user_id ON worker_profiles(user_id);
 			CREATE INDEX IF NOT EXISTS idx_worker_profiles_verification_status ON worker_profiles(verification_status);
@@ -197,6 +339,10 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			CREATE INDEX IF NOT EXISTS idx_worker_verification_requests_status ON worker_verification_requests(status);
 			CREATE INDEX IF NOT EXISTS idx_worker_documents_worker_id ON worker_documents(worker_id);
 			CREATE INDEX IF NOT EXISTS idx_worker_portfolio_projects_worker_id ON worker_portfolio_projects(worker_id);
+			CREATE INDEX IF NOT EXISTS idx_message_conversations_customer ON message_conversations(customer_user_id);
+			CREATE INDEX IF NOT EXISTS idx_message_conversations_worker ON message_conversations(worker_user_id);
+			CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
+			CREATE INDEX IF NOT EXISTS idx_messages_request_id ON messages(request_id);
 
 			ALTER TABLE users
 				ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE,

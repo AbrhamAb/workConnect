@@ -83,3 +83,17 @@ func (r InitiatePaymentRequest) Validate() error {
 		validation.Field(&r.AmountETB, validation.Required, validation.Min(1.0)),
 	)
 }
+
+func (r SendMessageRequest) Validate() error {
+	return validation.ValidateStruct(&r,
+		validation.Field(&r.Body, validation.Required, validation.Length(1, 4000)),
+		validation.Field(&r.MessageType, validation.In("", db.MessageTypeText)),
+	)
+}
+
+func (r ListMessagesQuery) Validate() error {
+	return validation.ValidateStruct(&r,
+		validation.Field(&r.Limit, validation.Min(1), validation.Max(100)),
+		validation.Field(&r.BeforeID, validation.Min(int64(0))),
+	)
+}
