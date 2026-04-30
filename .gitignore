@@ -1,0 +1,51 @@
+# Environment files
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# Secrets and local overrides
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+
+# Logs and runtime artifacts
+*.log
+*.pid
+*.seed
+*.sqlite
+*.sqlite3
+coverage.out
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/*.code-workspace
+
+# Go build outputs
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Python cache if any helper scripts are used
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp

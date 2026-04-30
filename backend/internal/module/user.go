@@ -107,6 +107,10 @@ func (m *WorkConnectModule) GetProfile(ctx context.Context, userID int64) (db.Us
 	return user, nil
 }
 
+func (m *WorkConnectModule) GetWorkerProfileInfo(ctx context.Context, userID int64) (int64, bool, error) {
+	return m.store.WorkerProfileByUserID(ctx, userID)
+}
+
 func (m *WorkConnectModule) ListWorkers(ctx context.Context, query dto.WorkerSearchQuery) ([]db.WorkerCard, error) {
 	return m.store.ListWorkers(ctx, query.Category, query.City, query.Q, query.Sort)
 }
@@ -177,6 +181,14 @@ func (m *WorkConnectModule) WorkerDecision(ctx context.Context, workerUserID, re
 		if accessErr == nil && messagingAllowedRequestStatus(requestStatus) {
 			_, _ = m.store.UpsertMessageConversation(ctx, requestID, customerUserID, assignedWorkerUserID)
 		}
+	}
+	return item, err
+}
+
+func (m *WorkConnectModule) CompleteWorkerRequest(ctx context.Context, workerUserID, requestID int64) (db.ServiceRequestView, error) {
+	item, err := m.store.MarkServiceRequestCompletedByWorker(ctx, workerUserID, requestID)
+	if persistence.IsNotFound(err) {
+		return db.ServiceRequestView{}, apperrors.ErrInvalidState
 	}
 	return item, err
 }

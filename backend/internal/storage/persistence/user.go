@@ -435,6 +435,27 @@ func (s *Store) UpdateServiceRequestStatusByWorker(ctx context.Context, workerUs
 	return s.GetServiceRequestViewByID(ctx, updatedID)
 }
 
+func (s *Store) MarkServiceRequestCompletedByWorker(ctx context.Context, workerUserID, requestID int64) (db.ServiceRequestView, error) {
+	q := `
+		UPDATE service_requests sr
+		SET status = 'completed', updated_at = NOW()
+		FROM worker_profiles wp
+		WHERE sr.id = $1
+		  AND sr.worker_id = wp.id
+		  AND wp.user_id = $2
+		  AND sr.status = 'accepted'
+		RETURNING sr.id
+	`
+
+	var updatedID int64
+	err := s.db.QueryRowContext(ctx, q, requestID, workerUserID).Scan(&updatedID)
+	if err != nil {
+		return db.ServiceRequestView{}, err
+	}
+
+	return s.GetServiceRequestViewByID(ctx, updatedID)
+}
+
 func (s *Store) SetWorkerAvailability(ctx context.Context, workerUserID int64, availability string) error {
 	q := `
 		UPDATE worker_profiles

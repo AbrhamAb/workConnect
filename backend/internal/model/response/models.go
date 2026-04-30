@@ -3,12 +3,14 @@ package response
 import "task-management-backend/internal/model/db"
 
 type AuthResponse struct {
-	Token string  `json:"token"`
-	User  db.User `json:"user"`
+	Token           string  `json:"token"`
+	User            db.User `json:"user"`
+	WorkerProfileID *int64  `json:"workerProfileId,omitempty"`
 }
 
 type ProfileResponse struct {
-	User db.User `json:"user"`
+	User            db.User `json:"user"`
+	WorkerProfileID *int64  `json:"workerProfileId,omitempty"`
 }
 
 type WorkerListResponse struct {

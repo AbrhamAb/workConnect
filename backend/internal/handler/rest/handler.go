@@ -1,12 +1,14 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	nethttp "net/http"
 	"strconv"
 	apperrors "task-management-backend/internal/constant/errors"
 	"task-management-backend/internal/handler/middleware"
+	"task-management-backend/internal/model/db"
 	"task-management-backend/internal/model/dto"
 	"task-management-backend/internal/model/response"
 	"task-management-backend/internal/module"
@@ -39,7 +41,7 @@ func (h *Handler) Register(w nethttp.ResponseWriter, r *nethttp.Request) {
 		return
 	}
 
-	response.JSON(w, nethttp.StatusCreated, response.AuthResponse{Token: token, User: user})
+	response.JSON(w, nethttp.StatusCreated, h.authResponse(r.Context(), token, user))
 }
 
 func (h *Handler) Login(w nethttp.ResponseWriter, r *nethttp.Request) {
@@ -55,7 +57,7 @@ func (h *Handler) Login(w nethttp.ResponseWriter, r *nethttp.Request) {
 		return
 	}
 
-	response.JSON(w, nethttp.StatusOK, response.AuthResponse{Token: token, User: user})
+	response.JSON(w, nethttp.StatusOK, h.authResponse(r.Context(), token, user))
 }
 
 func (h *Handler) Me(w nethttp.ResponseWriter, r *nethttp.Request) {
@@ -71,7 +73,7 @@ func (h *Handler) Me(w nethttp.ResponseWriter, r *nethttp.Request) {
 		return
 	}
 
-	response.JSON(w, nethttp.StatusOK, response.ProfileResponse{User: user})
+	response.JSON(w, nethttp.StatusOK, h.profileResponse(r.Context(), user))
 }
 
 func (h *Handler) ListWorkers(w nethttp.ResponseWriter, r *nethttp.Request) {
@@ -260,6 +262,28 @@ func (h *Handler) WorkerDecision(w nethttp.ResponseWriter, r *nethttp.Request) {
 	response.JSON(w, nethttp.StatusOK, response.ServiceRequestResponse{Request: item})
 }
 
+func (h *Handler) CompleteWorkerRequest(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, ok := middleware.PrincipalFromContext(r.Context())
+	if !ok {
+		response.Error(w, nethttp.StatusUnauthorized, apperrors.ErrUnauthorized.Error())
+		return
+	}
+
+	requestID, err := parseIDParam(r, "requestID")
+	if err != nil {
+		response.Error(w, nethttp.StatusBadRequest, "invalid request id")
+		return
+	}
+
+	item, err := h.Module().WorkConnect.CompleteWorkerRequest(r.Context(), principal.UserID, requestID)
+	if err != nil {
+		h.writeError(w, err)
+		return
+	}
+
+	response.JSON(w, nethttp.StatusOK, response.ServiceRequestResponse{Request: item})
+}
+
 func (h *Handler) WorkerAvailability(w nethttp.ResponseWriter, r *nethttp.Request) {
 	principal, ok := middleware.PrincipalFromContext(r.Context())
 	if !ok {
@@ -440,4 +464,24 @@ func (h *Handler) writeError(w nethttp.ResponseWriter, err error) {
 	default:
 		response.Error(w, nethttp.StatusBadRequest, err.Error())
 	}
+}
+
+func (h *Handler) authResponse(ctx context.Context, token string, user db.User) response.AuthResponse {
+	resp := response.AuthResponse{Token: token, User: user}
+	if user.Role == db.RoleWorker {
+		if workerProfileID, _, err := h.Module().WorkConnect.GetWorkerProfileInfo(ctx, user.ID); err == nil {
+			resp.WorkerProfileID = &workerProfileID
+		}
+	}
+	return resp
+}
+
+func (h *Handler) profileResponse(ctx context.Context, user db.User) response.ProfileResponse {
+	resp := response.ProfileResponse{User: user}
+	if user.Role == db.RoleWorker {
+		if workerProfileID, _, err := h.Module().WorkConnect.GetWorkerProfileInfo(ctx, user.ID); err == nil {
+			resp.WorkerProfileID = &workerProfileID
+		}
+	}
+	return resp
 }

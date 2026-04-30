@@ -3,11 +3,11 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: workConnect-backend
     restart: unless-stopped
     environment:
       PORT: ${PORT:-8080}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
+      # Set this to your Neon connection string in .env (sslmode=require).
       DATABASE_URL: ${DATABASE_URL}
     ports:
       - "8080:8080"

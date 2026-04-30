@@ -1,0 +1,460 @@
+{
+  "info": {
+    "_postman_id": "7d1a8f1f-2f44-4d44-9f25-9f9f8dfe7f01",
+    "name": "WorkConnect API",
+    "description": "Complete API collection for WorkConnect backend. Import this together with the environment file.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Public",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "List Workers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiBaseUrl}}/workers?category=&city=&q=&sort=",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["workers"],
+              "query": [
+                {"key": "category", "value": ""},
+                {"key": "city", "value": ""},
+                {"key": "q", "value": ""},
+                {"key": "sort", "value": ""}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Worker Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiBaseUrl}}/workers/{{workerProfileID}}",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["workers", "{{workerProfileID}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Test Customer\",\n  \"email\": \"customer@example.com\",\n  \"phone\": \"0911000001\",\n  \"role\": \"customer\",\n  \"password\": \"Passw0rd!\"\n}"
+            },
+            "url": {
+              "raw": "{{apiBaseUrl}}/auth/register",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["auth", "register"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.token) pm.environment.set('customerToken', body.token);",
+                  "  if (body.user && body.user.role === 'customer') pm.environment.set('customerUserId', String(body.user.id));",
+                  "  if (body.workerProfileId) pm.environment.set('workerProfileID', String(body.workerProfileId));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"customer@example.com\",\n  \"password\": \"Passw0rd!\"\n}"
+            },
+            "url": {
+              "raw": "{{apiBaseUrl}}/auth/login",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.token) pm.environment.set('customerToken', body.token);",
+                  "  if (body.workerProfileId) pm.environment.set('workerProfileID', String(body.workerProfileId));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{customerToken}}"}
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/auth/me",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["auth", "me"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.workerProfileId) pm.environment.set('workerProfileID', String(body.workerProfileId));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Customer",
+      "item": [
+        {
+          "name": "Create Service Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{customerToken}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workerId\": {{workerProfileID}},\n  \"categoryId\": {{categoryID}},\n  \"title\": \"Need home electrician fix\",\n  \"description\": \"Lights are flickering and sockets are unstable.\",\n  \"locationAddress\": \"Bole, Addis Ababa\",\n  \"preferredAt\": \"2026-04-30T12:00:00Z\",\n  \"budgetEtb\": 1500\n}"
+            },
+            "url": {
+              "raw": "{{apiBaseUrl}}/customer/requests",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["customer", "requests"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.request) pm.environment.set('requestID', String(body.request.id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{customerToken}}"}
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/customer/requests",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["customer", "requests"]
+            }
+          }
+        },
+        {
+          "name": "Review Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{customerToken}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5,\n  \"comment\": \"Great work\"\n}"
+            },
+            "url": {
+              "raw": "{{apiBaseUrl}}/customer/requests/{{requestID}}/review",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["customer", "requests", "{{requestID}}", "review"]
+            }
+          }
+        },
+        {
+          "name": "Initiate Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{customerToken}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"cash\",\n  \"amountEtb\": 1500\n}"
+            },
+            "url": {
+              "raw": "{{apiBaseUrl}}/customer/requests/{{requestID}}/payments/initiate",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["customer", "requests", "{{requestID}}", "payments", "initiate"]
+            }
+          }
+        },
+        {
+          "name": "Customer Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{customerToken}}"}
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/customer/dashboard",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["customer", "dashboard"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Worker",
+      "item": [
+        {
+          "name": "List Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{workerToken}}"}
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/worker/requests",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["worker", "requests"]
+            }
+          }
+        },
+        {
+          "name": "Accept or Reject Request",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{workerToken}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"accept\"\n}"
+            },
+            "url": {
+              "raw": "{{apiBaseUrl}}/worker/requests/{{requestID}}/decision",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["worker", "requests", "{{requestID}}", "decision"]
+            }
+          }
+        },
+        {
+          "name": "Complete Request",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{workerToken}}"}
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/worker/requests/{{requestID}}/complete",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["worker", "requests", "{{requestID}}", "complete"]
+            }
+          }
+        },
+        {
+          "name": "Update Availability",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{workerToken}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"availabilityStatus\": \"busy\"\n}"
+            },
+            "url": {
+              "raw": "{{apiBaseUrl}}/worker/availability",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["worker", "availability"]
+            }
+          }
+        },
+        {
+          "name": "Worker Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{workerToken}}"}
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/worker/dashboard",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["worker", "dashboard"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Messages",
+      "item": [
+        {
+          "name": "List Conversations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{customerToken}}"}
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/messages/conversations",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["messages", "conversations"]
+            }
+          }
+        },
+        {
+          "name": "List Messages By Request",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{customerToken}}"}
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/messages/requests/{{requestID}}?limit=50&beforeId=",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["messages", "requests", "{{requestID}}"],
+              "query": [
+                {"key": "limit", "value": "50"},
+                {"key": "beforeId", "value": ""}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Send Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{customerToken}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Hello, please confirm arrival time.\",\n  \"messageType\": \"text\"\n}"
+            },
+            "url": {
+              "raw": "{{apiBaseUrl}}/messages/requests/{{requestID}}",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["messages", "requests", "{{requestID}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{adminToken}}"}
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/admin/dashboard",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["admin", "dashboard"]
+            }
+          }
+        },
+        {
+          "name": "Pending Worker Verifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{adminToken}}"}
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/admin/workers/pending-verification",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["admin", "workers", "pending-verification"]
+            }
+          }
+        },
+        {
+          "name": "Verify Worker",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{adminToken}}"}
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/admin/workers/{{workerProfileID}}/verify",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["admin", "workers", "{{workerProfileID}}", "verify"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {"key": "baseUrl", "value": "http://localhost:8080"},
+    {"key": "apiBaseUrl", "value": "http://localhost:8080/api/v1"},
+    {"key": "workerProfileID", "value": "1"},
+    {"key": "categoryID", "value": "1"},
+    {"key": "requestID", "value": "1"},
+    {"key": "customerToken", "value": ""},
+    {"key": "workerToken", "value": ""},
+    {"key": "adminToken", "value": ""},
+    {"key": "customerUserId", "value": ""}
+  ]
+}

@@ -33,6 +33,7 @@ func RegisterWorkConnectRoutes(r chi.Router, handler *rest.Handler) {
 		worker.Use(middleware.RequireRoles(db.RoleWorker))
 		worker.Get("/requests", handler.ListWorkerRequests)
 		worker.Patch("/requests/{requestID}/decision", handler.WorkerDecision)
+		worker.Patch("/requests/{requestID}/complete", handler.CompleteWorkerRequest)
 		worker.Patch("/availability", handler.WorkerAvailability)
 		worker.Get("/dashboard", handler.WorkerDashboard)
 	})
