@@ -13,6 +13,12 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+type UserLoginResponse struct {
+	ID       int64  `json:"id"`
+	FullName string `json:"fullName"`
+	Role     string `json:"role"`
+	Token    string `json:"token"`
+}
 type WorkerSearchQuery struct {
 	Category string `json:"category"`
 	City     string `json:"city"`

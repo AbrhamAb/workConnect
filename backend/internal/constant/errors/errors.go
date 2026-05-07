@@ -1,6 +1,9 @@
 package errors
 
-import "errors"
+import (
+	"errors"
+	"net/http"
+)
 
 var (
 	ErrInvalidCredentials = errors.New("invalid email or password")
@@ -14,3 +17,16 @@ var (
 	ErrWorkerNotVerified  = errors.New("worker is not verified")
 	ErrValidation         = errors.New("validation failed")
 )
+
+var ErrorMap = map[error]int{
+	ErrInvalidCredentials: http.StatusBadRequest,
+	ErrUserAlreadyExists:  http.StatusConflict,
+	ErrUnauthorized:       http.StatusUnauthorized,
+	ErrForbidden:          http.StatusForbidden,
+	ErrNotFound:           http.StatusNotFound,
+	ErrInvalidRole:        http.StatusBadRequest,
+	ErrInvalidState:       http.StatusBadRequest,
+	ErrRequestConflict:    http.StatusConflict,
+	ErrWorkerNotVerified:  http.StatusForbidden,
+	ErrValidation:         http.StatusBadRequest,
+}

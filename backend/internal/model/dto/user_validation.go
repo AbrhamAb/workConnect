@@ -47,6 +47,22 @@ func (r LoginRequest) Validate() error {
 	)
 }
 
+// i have include regex to include email and password lendth and is email is correctly putted
+// var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
+
+// func (l *LoginRequest) Validate() error {
+// 	return validation.ValidateStruct(l,
+// 		validation.Field(&l.Email,
+// 			validation.Required.Error("email is required"),
+// 			validation.Match(emailRegex).Error("invalid email format"),
+// 		),
+// 		validation.Field(&l.Password,
+// 			validation.Required.Error("password is required"),
+// 			validation.Length(6, 50).Error("password must be between 6 and 50 characters"),
+// 		),
+// 	)
+// }
+
 func (r CreateServiceRequest) Validate() error {
 	return validation.ValidateStruct(&r,
 		validation.Field(&r.WorkerID, validation.Required, validation.Min(int64(1))),

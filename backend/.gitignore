@@ -1,0 +1,17 @@
+# env
+.env
+
+# build
+bin/
+*.exe
+*.out
+
+# logs
+*.log
+
+# editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store

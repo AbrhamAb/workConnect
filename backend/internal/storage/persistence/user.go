@@ -33,14 +33,15 @@ func (s *Store) CreateUser(ctx context.Context, fullName, email, phone, role, pa
 }
 
 func (s *Store) GetUserByEmail(ctx context.Context, email string) (db.User, error) {
-	q := `
+	query := `
 		SELECT id, full_name, email, phone, role, is_active, password_hash, created_at, updated_at
 		FROM users
 		WHERE email = $1
 	`
 
 	var user db.User
-	err := s.db.QueryRowContext(ctx, q, email).Scan(
+
+	err := s.db.QueryRowContext(ctx, query, email).Scan(
 		&user.ID,
 		&user.FullName,
 		&user.Email,
@@ -51,7 +52,16 @@ func (s *Store) GetUserByEmail(ctx context.Context, email string) (db.User, erro
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
-	return user, err
+
+	// u forget to check if user not found error and return custom error message
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return user, fmt.Errorf("user not found")
+		}
+		return user, err
+	}
+
+	return user, nil
 }
 
 func (s *Store) GetUserByID(ctx context.Context, userID int64) (db.User, error) {

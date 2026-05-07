@@ -72,30 +72,36 @@ func (m *WorkConnectModule) Register(ctx context.Context, req dto.RegisterReques
 	return token, user, nil
 }
 
-func (m *WorkConnectModule) Login(ctx context.Context, req dto.LoginRequest) (string, db.User, error) {
-	if err := req.Validate(); err != nil {
-		return "", db.User{}, err
-	}
+func (m *WorkConnectModule) Login(ctx context.Context, req dto.LoginRequest) (*dto.UserLoginResponse, error) { // login response should be pointer to avoid unnecessary copying and i have changed dto response type
+	// if err := req.Validate(); err != nil {
+	// 	return "", db.User{}, err
+	// }
+
+	// we must not validate on service logic we must finish on handler
 
 	user, err := m.store.GetUserByEmail(ctx, strings.ToLower(strings.TrimSpace(req.Email)))
 	if err != nil {
 		if stderrs.Is(err, sql.ErrNoRows) {
-			return "", db.User{}, apperrors.ErrInvalidCredentials
+			return nil, apperrors.ErrInvalidCredentials
 		}
-		return "", db.User{}, err
+		return nil, err
 	}
 
 	if err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
-		return "", db.User{}, apperrors.ErrInvalidCredentials
+		return nil, apperrors.ErrInvalidCredentials
 	}
 
 	token, err := m.generateToken(user.ID, user.FullName, user.Role)
 	if err != nil {
-		return "", db.User{}, err
+		return nil, apperrors.ErrInvalidCredentials
 	}
 
-	user.PasswordHash = ""
-	return token, user, nil
+	return &dto.UserLoginResponse{
+		ID:       user.ID,
+		FullName: user.FullName,
+		Role:     user.Role,
+		Token:    token,
+	}, nil
 }
 
 func (m *WorkConnectModule) GetProfile(ctx context.Context, userID int64) (db.User, error) {
@@ -385,7 +391,7 @@ func (m *WorkConnectModule) generateToken(userID int64, fullName, role string) (
 		FullName: fullName,
 		Role:     role,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)), // this need to be 5 minute not 24 hour
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
