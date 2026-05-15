@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	apperrors "task-management-backend/internal/constant/errors"
+	user "task-management-backend/internal/module/user"
 	"task-management-backend/internal/model/response"
 	"task-management-backend/internal/module"
 )
@@ -28,7 +29,7 @@ func CORS(next http.Handler) http.Handler {
 	})
 }
 
-func Auth(workconnectModule *module.WorkConnectModule) func(next http.Handler) http.Handler {
+func Auth(workconnectModule module.WorkConnectService) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
@@ -78,7 +79,7 @@ func RequireRoles(roles ...string) func(next http.Handler) http.Handler {
 	}
 }
 
-func PrincipalFromContext(ctx context.Context) (module.AuthPrincipal, bool) {
-	principal, ok := ctx.Value(principalCtxKey).(module.AuthPrincipal)
+func PrincipalFromContext(ctx context.Context) (user.AuthPrincipal, bool) {
+	principal, ok := ctx.Value(principalCtxKey).(user.AuthPrincipal)
 	return principal, ok
 }

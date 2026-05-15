@@ -9,7 +9,8 @@ import (
 	apperrors "task-management-backend/internal/constant/errors"
 	"task-management-backend/internal/model/db"
 	"task-management-backend/internal/model/dto"
-	"task-management-backend/internal/storage/persistence"
+	persistence "task-management-backend/internal/storage/persistence"
+	userpersistence "task-management-backend/internal/storage/persistence/user"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -17,7 +18,7 @@ import (
 )
 
 type WorkConnectModule struct {
-	store     *persistence.Store
+	store     persistence.Store
 	jwtSecret []byte
 }
 
@@ -34,7 +35,7 @@ type AuthPrincipal struct {
 	Role     string
 }
 
-func NewWorkConnectModule(store *persistence.Store, jwtSecret string) *WorkConnectModule {
+func NewWorkConnectModule(store persistence.Store, jwtSecret string) *WorkConnectModule {
 	return &WorkConnectModule{store: store, jwtSecret: []byte(jwtSecret)}
 }
 
@@ -51,7 +52,7 @@ func (m *WorkConnectModule) Register(ctx context.Context, req dto.RegisterReques
 
 	user, err := m.store.CreateUser(ctx, req.FullName, strings.ToLower(req.Email), req.Phone, req.Role, string(hash))
 	if err != nil {
-		if persistence.IsUniqueViolation(err) {
+		if userpersistence.IsUniqueViolation(err) {
 			return "", db.User{}, apperrors.ErrUserAlreadyExists
 		}
 		return "", db.User{}, err
@@ -123,7 +124,7 @@ func (m *WorkConnectModule) ListWorkers(ctx context.Context, query dto.WorkerSea
 
 func (m *WorkConnectModule) GetWorkerDetails(ctx context.Context, workerID int64) (db.WorkerDetails, error) {
 	worker, err := m.store.GetWorkerDetails(ctx, workerID)
-	if persistence.IsNotFound(err) {
+	if userpersistence.IsNotFound(err) {
 		return db.WorkerDetails{}, apperrors.ErrNotFound
 	}
 	return worker, err
@@ -179,7 +180,7 @@ func (m *WorkConnectModule) WorkerDecision(ctx context.Context, workerUserID, re
 	}
 
 	item, err := m.store.UpdateServiceRequestStatusByWorker(ctx, workerUserID, requestID, status)
-	if persistence.IsNotFound(err) {
+	if userpersistence.IsNotFound(err) {
 		return db.ServiceRequestView{}, apperrors.ErrInvalidState
 	}
 	if err == nil && status == db.RequestStatusAccepted {
@@ -193,7 +194,7 @@ func (m *WorkConnectModule) WorkerDecision(ctx context.Context, workerUserID, re
 
 func (m *WorkConnectModule) CompleteWorkerRequest(ctx context.Context, workerUserID, requestID int64) (db.ServiceRequestView, error) {
 	item, err := m.store.MarkServiceRequestCompletedByWorker(ctx, workerUserID, requestID)
-	if persistence.IsNotFound(err) {
+	if userpersistence.IsNotFound(err) {
 		return db.ServiceRequestView{}, apperrors.ErrInvalidState
 	}
 	return item, err
@@ -204,7 +205,7 @@ func (m *WorkConnectModule) UpdateWorkerAvailability(ctx context.Context, worker
 		return err
 	}
 	if err := m.store.SetWorkerAvailability(ctx, workerUserID, req.AvailabilityStatus); err != nil {
-		if persistence.IsNotFound(err) {
+		if userpersistence.IsNotFound(err) {
 			return apperrors.ErrNotFound
 		}
 		return err
@@ -226,10 +227,10 @@ func (m *WorkConnectModule) SubmitReview(ctx context.Context, customerID, reques
 	}
 
 	if err = m.store.CreateReview(ctx, requestID, customerID, req.Rating, req.Comment); err != nil {
-		if persistence.IsNotFound(err) {
+		if userpersistence.IsNotFound(err) {
 			return apperrors.ErrInvalidState
 		}
-		if persistence.IsUniqueViolation(err) {
+		if userpersistence.IsUniqueViolation(err) {
 			return apperrors.ErrRequestConflict
 		}
 		return err
@@ -249,7 +250,7 @@ func (m *WorkConnectModule) InitiatePayment(ctx context.Context, customerID, req
 		return db.Payment{}, apperrors.ErrForbidden
 	}
 
-	ref := persistence.BuildPaymentReference(req.Provider, requestID)
+	ref := userpersistence.BuildPaymentReference(req.Provider, requestID)
 	return m.store.InitiatePayment(ctx, requestID, req.AmountETB, req.Provider, ref)
 }
 
@@ -271,7 +272,7 @@ func (m *WorkConnectModule) PendingWorkerVerifications(ctx context.Context) ([]d
 
 func (m *WorkConnectModule) VerifyWorker(ctx context.Context, workerID int64, verified bool) error {
 	if err := m.store.VerifyWorker(ctx, workerID, verified); err != nil {
-		if persistence.IsNotFound(err) {
+		if userpersistence.IsNotFound(err) {
 			return apperrors.ErrNotFound
 		}
 		return err
@@ -293,7 +294,7 @@ func (m *WorkConnectModule) ListMessagesByRequest(ctx context.Context, userID, r
 
 	customerUserID, workerUserID, status, err := m.store.GetRequestMessagingParticipants(ctx, requestID)
 	if err != nil {
-		if persistence.IsNotFound(err) {
+		if userpersistence.IsNotFound(err) {
 			return nil, apperrors.ErrNotFound
 		}
 		return nil, err
@@ -328,7 +329,7 @@ func (m *WorkConnectModule) SendMessage(ctx context.Context, userID, requestID i
 
 	customerUserID, workerUserID, status, err := m.store.GetRequestMessagingParticipants(ctx, requestID)
 	if err != nil {
-		if persistence.IsNotFound(err) {
+		if userpersistence.IsNotFound(err) {
 			return db.Message{}, apperrors.ErrNotFound
 		}
 		return db.Message{}, err
