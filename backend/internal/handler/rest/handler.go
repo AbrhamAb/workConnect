@@ -28,6 +28,11 @@ func (h *Handler) Module() *module.Module {
 	return h.module
 }
 
+func (h *Handler) HealthCheck(w nethttp.ResponseWriter, _ *nethttp.Request) {
+	w.WriteHeader(nethttp.StatusOK)
+	_, _ = w.Write([]byte("workconnect-backend-ok"))
+}
+
 func (h *Handler) Register(w nethttp.ResponseWriter, r *nethttp.Request) {
 	var req dto.RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -50,7 +55,10 @@ func (h *Handler) Login(w nethttp.ResponseWriter, r *nethttp.Request) {
 		response.Error(w, nethttp.StatusBadRequest, "invalid payload")
 		return
 	}
-
+	//   if err := req.Validate(); err != nil {
+	// 	response.Error()
+	// 	return
+	//   }
 	token, user, err := h.Module().WorkConnect.Login(r.Context(), req)
 	if err != nil {
 		h.writeError(w, err)
@@ -485,3 +493,15 @@ func (h *Handler) profileResponse(ctx context.Context, user db.User) response.Pr
 	}
 	return resp
 }
+
+// type  CustonerHandler interface {
+// 	Hire(w http.responsewriter , r *htto.request)
+// 	Hire(w http.responsewriter , r *htto.request)
+// 	Hire(w http.responsewriter , r *htto.request)
+// }
+
+// type  worker interface {
+// 	Hire(w http.responsewriter , r *htto.request)
+// 	Hire(w http.responsewriter , r *htto.request)
+// 	Hire(w http.responsewriter , r *htto.request)
+// }

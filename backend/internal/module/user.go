@@ -73,9 +73,9 @@ func (m *WorkConnectModule) Register(ctx context.Context, req dto.RegisterReques
 }
 
 func (m *WorkConnectModule) Login(ctx context.Context, req dto.LoginRequest) (string, db.User, error) {
-	if err := req.Validate(); err != nil {
-		return "", db.User{}, err
-	}
+	// if err := req.Validate(); err != nil {
+	// 	return "", db.User{}, err
+	// }
 
 	user, err := m.store.GetUserByEmail(ctx, strings.ToLower(strings.TrimSpace(req.Email)))
 	if err != nil {

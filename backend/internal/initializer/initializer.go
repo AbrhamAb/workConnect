@@ -35,7 +35,7 @@ func Run() error {
 
 	modules := module.New(dbConn)
 	handlers := rest.New(modules)
-	router := routing.NewRouter(handlers)
+	router := routing.NewRouter(*handlers)
 
 	port := os.Getenv("PORT")
 	if port == "" {
