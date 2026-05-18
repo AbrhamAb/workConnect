@@ -7,6 +7,7 @@ import (
 	apperrors "task-management-backend/internal/constant/errors"
 	"task-management-backend/internal/model/response"
 	"task-management-backend/internal/module"
+	user "task-management-backend/internal/module/user"
 )
 
 type ctxKey string
@@ -28,24 +29,24 @@ func CORS(next http.Handler) http.Handler {
 	})
 }
 
-func Auth(workconnectModule *module.WorkConnectModule) func(next http.Handler) http.Handler {
+func Auth(workconnectModule module.WorkConnectService) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
-				response.Error(w, http.StatusUnauthorized, apperrors.ErrUnauthorized.Error())
+				response.SendErrorResponse(w, r, apperrors.ErrUnauthorized)
 				return
 			}
 
 			split := strings.SplitN(authHeader, " ", 2)
 			if len(split) != 2 || !strings.EqualFold(split[0], "Bearer") {
-				response.Error(w, http.StatusUnauthorized, apperrors.ErrUnauthorized.Error())
+				response.SendErrorResponse(w, r, apperrors.ErrUnauthorized)
 				return
 			}
 
 			principal, err := workconnectModule.ParseToken(split[1])
 			if err != nil {
-				response.Error(w, http.StatusUnauthorized, apperrors.ErrUnauthorized.Error())
+				response.SendErrorResponse(w, r, apperrors.ErrUnauthorized)
 				return
 			}
 
@@ -64,12 +65,12 @@ func RequireRoles(roles ...string) func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			principal, ok := PrincipalFromContext(r.Context())
 			if !ok {
-				response.Error(w, http.StatusUnauthorized, apperrors.ErrUnauthorized.Error())
+				response.SendErrorResponse(w, r, apperrors.ErrUnauthorized)
 				return
 			}
 
 			if _, isAllowed := allowed[strings.ToLower(principal.Role)]; !isAllowed {
-				response.Error(w, http.StatusForbidden, apperrors.ErrForbidden.Error())
+				response.SendErrorResponse(w, r, apperrors.ErrForbidden)
 				return
 			}
 
@@ -78,7 +79,7 @@ func RequireRoles(roles ...string) func(next http.Handler) http.Handler {
 	}
 }
 
-func PrincipalFromContext(ctx context.Context) (module.AuthPrincipal, bool) {
-	principal, ok := ctx.Value(principalCtxKey).(module.AuthPrincipal)
+func PrincipalFromContext(ctx context.Context) (user.AuthPrincipal, bool) {
+	principal, ok := ctx.Value(principalCtxKey).(user.AuthPrincipal)
 	return principal, ok
 }
