@@ -80,11 +80,3 @@ func writeJSON(w http.ResponseWriter, statusCode int, payload any) {
 	w.WriteHeader(statusCode)
 	_, _ = w.Write(body)
 }
-
-func JSON(w http.ResponseWriter, statusCode int, payload any) {
-	writeJSON(w, statusCode, payload)
-}
-
-func Error(w http.ResponseWriter, statusCode int, message string) {
-	writeJSON(w, statusCode, map[string]string{"message": message})
-}
