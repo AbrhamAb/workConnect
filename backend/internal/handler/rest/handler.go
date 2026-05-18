@@ -36,3 +36,11 @@ type Handler interface {
 func New(modules *module.Module) Handler {
 	return restuser.New(modules)
 }
+
+// }
+
+// type  worker interface {
+// 	Hire(w http.responsewriter , r *htto.request)
+// 	Hire(w http.responsewriter , r *htto.request)
+// 	Hire(w http.responsewriter , r *htto.request)
+// }
