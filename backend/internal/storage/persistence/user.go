@@ -10,7 +10,19 @@ import (
 	"time"
 )
 
-func (s *Store) CreateUser(ctx context.Context, fullName, email, phone, role, passwordHash string) (db.User, error) {
+type sqlStore struct {
+	db *sql.DB
+}
+
+func NewStore(dbConn *sql.DB) Store {
+	return &sqlStore{db: dbConn}
+}
+
+func (s *sqlStore) DB() db.DBTX {
+	return s.db
+}
+
+func (s *sqlStore) CreateUser(ctx context.Context, fullName, email, phone, role, passwordHash string) (db.User, error) {
 	q := `
 		INSERT INTO users (full_name, email, phone, role, password_hash)
 		VALUES ($1, $2, $3, $4, $5)
@@ -32,7 +44,7 @@ func (s *Store) CreateUser(ctx context.Context, fullName, email, phone, role, pa
 	return user, err
 }
 
-func (s *Store) GetUserByEmail(ctx context.Context, email string) (db.User, error) {
+func (s *sqlStore) GetUserByEmail(ctx context.Context, email string) (db.User, error) {
 	q := `
 		SELECT id, full_name, email, phone, role, is_active, password_hash, created_at, updated_at
 		FROM users
@@ -54,7 +66,7 @@ func (s *Store) GetUserByEmail(ctx context.Context, email string) (db.User, erro
 	return user, err
 }
 
-func (s *Store) GetUserByID(ctx context.Context, userID int64) (db.User, error) {
+func (s *sqlStore) GetUserByID(ctx context.Context, userID int64) (db.User, error) {
 	q := `
 		SELECT id, full_name, email, phone, role, is_active, password_hash, created_at, updated_at
 		FROM users
@@ -76,7 +88,7 @@ func (s *Store) GetUserByID(ctx context.Context, userID int64) (db.User, error) 
 	return user, err
 }
 
-func (s *Store) CreateWorkerProfile(ctx context.Context, userID int64) error {
+func (s *sqlStore) CreateWorkerProfile(ctx context.Context, userID int64) error {
 	q := `
 		INSERT INTO worker_profiles (user_id, headline, bio, city, experience_years, hourly_rate_etb, availability_status)
 		VALUES ($1, 'Verified Professional', '', 'Addis Ababa', 0, 0, 'available')
@@ -86,7 +98,7 @@ func (s *Store) CreateWorkerProfile(ctx context.Context, userID int64) error {
 	return err
 }
 
-func (s *Store) ListWorkers(ctx context.Context, category, city, qTerm, sort string) ([]db.WorkerCard, error) {
+func (s *sqlStore) ListWorkers(ctx context.Context, category, city, qTerm, sort string) ([]db.WorkerCard, error) {
 	base := `
 		SELECT
 			wp.id,
@@ -171,7 +183,7 @@ func (s *Store) ListWorkers(ctx context.Context, category, city, qTerm, sort str
 	return workers, rows.Err()
 }
 
-func (s *Store) GetWorkerDetails(ctx context.Context, workerID int64) (db.WorkerDetails, error) {
+func (s *sqlStore) GetWorkerDetails(ctx context.Context, workerID int64) (db.WorkerDetails, error) {
 	q := `
 		SELECT
 			wp.id,
@@ -244,7 +256,7 @@ func (s *Store) GetWorkerDetails(ctx context.Context, workerID int64) (db.Worker
 	return details, rows.Err()
 }
 
-func (s *Store) CreateServiceRequest(ctx context.Context, request db.ServiceRequest) (db.ServiceRequest, error) {
+func (s *sqlStore) CreateServiceRequest(ctx context.Context, request db.ServiceRequest) (db.ServiceRequest, error) {
 	q := `
 		INSERT INTO service_requests (
 			reference_code,
@@ -295,7 +307,7 @@ func (s *Store) CreateServiceRequest(ctx context.Context, request db.ServiceRequ
 	return out, err
 }
 
-func (s *Store) GetServiceRequestViewByID(ctx context.Context, requestID int64) (db.ServiceRequestView, error) {
+func (s *sqlStore) GetServiceRequestViewByID(ctx context.Context, requestID int64) (db.ServiceRequestView, error) {
 	q := `
 		SELECT
 			sr.id,
@@ -348,7 +360,7 @@ func (s *Store) GetServiceRequestViewByID(ctx context.Context, requestID int64) 
 	return item, err
 }
 
-func (s *Store) ListCustomerRequests(ctx context.Context, customerID int64) ([]db.ServiceRequestView, error) {
+func (s *sqlStore) ListCustomerRequests(ctx context.Context, customerID int64) ([]db.ServiceRequestView, error) {
 	q := `
 		SELECT
 			sr.id,
@@ -381,7 +393,7 @@ func (s *Store) ListCustomerRequests(ctx context.Context, customerID int64) ([]d
 	return s.scanServiceRequests(ctx, q, customerID)
 }
 
-func (s *Store) ListWorkerRequests(ctx context.Context, workerUserID int64) ([]db.ServiceRequestView, error) {
+func (s *sqlStore) ListWorkerRequests(ctx context.Context, workerUserID int64) ([]db.ServiceRequestView, error) {
 	q := `
 		SELECT
 			sr.id,
@@ -414,7 +426,7 @@ func (s *Store) ListWorkerRequests(ctx context.Context, workerUserID int64) ([]d
 	return s.scanServiceRequests(ctx, q, workerUserID)
 }
 
-func (s *Store) UpdateServiceRequestStatusByWorker(ctx context.Context, workerUserID, requestID int64, status string) (db.ServiceRequestView, error) {
+func (s *sqlStore) UpdateServiceRequestStatusByWorker(ctx context.Context, workerUserID, requestID int64, status string) (db.ServiceRequestView, error) {
 	q := `
 		UPDATE service_requests sr
 		SET status = $1, worker_decision_at = NOW(), updated_at = NOW()
@@ -435,7 +447,7 @@ func (s *Store) UpdateServiceRequestStatusByWorker(ctx context.Context, workerUs
 	return s.GetServiceRequestViewByID(ctx, updatedID)
 }
 
-func (s *Store) MarkServiceRequestCompletedByWorker(ctx context.Context, workerUserID, requestID int64) (db.ServiceRequestView, error) {
+func (s *sqlStore) MarkServiceRequestCompletedByWorker(ctx context.Context, workerUserID, requestID int64) (db.ServiceRequestView, error) {
 	q := `
 		UPDATE service_requests sr
 		SET status = 'completed', updated_at = NOW()
@@ -456,7 +468,7 @@ func (s *Store) MarkServiceRequestCompletedByWorker(ctx context.Context, workerU
 	return s.GetServiceRequestViewByID(ctx, updatedID)
 }
 
-func (s *Store) SetWorkerAvailability(ctx context.Context, workerUserID int64, availability string) error {
+func (s *sqlStore) SetWorkerAvailability(ctx context.Context, workerUserID int64, availability string) error {
 	q := `
 		UPDATE worker_profiles
 		SET availability_status = $1, updated_at = NOW()
@@ -476,7 +488,7 @@ func (s *Store) SetWorkerAvailability(ctx context.Context, workerUserID int64, a
 	return nil
 }
 
-func (s *Store) CreateReview(ctx context.Context, requestID, customerID int64, rating int, comment string) error {
+func (s *sqlStore) CreateReview(ctx context.Context, requestID, customerID int64, rating int, comment string) error {
 	q := `
 		INSERT INTO reviews (request_id, customer_id, worker_id, rating, comment)
 		SELECT sr.id, sr.customer_id, sr.worker_id, $3, $4
@@ -497,7 +509,7 @@ func (s *Store) CreateReview(ctx context.Context, requestID, customerID int64, r
 	return s.RefreshWorkerRating(ctx, requestID)
 }
 
-func (s *Store) RefreshWorkerRating(ctx context.Context, requestID int64) error {
+func (s *sqlStore) RefreshWorkerRating(ctx context.Context, requestID int64) error {
 	q := `
 		UPDATE worker_profiles wp
 		SET
@@ -516,7 +528,7 @@ func (s *Store) RefreshWorkerRating(ctx context.Context, requestID int64) error 
 	return err
 }
 
-func (s *Store) InitiatePayment(ctx context.Context, requestID int64, amount float64, provider, providerRef string) (db.Payment, error) {
+func (s *sqlStore) InitiatePayment(ctx context.Context, requestID int64, amount float64, provider, providerRef string) (db.Payment, error) {
 	q := `
 		INSERT INTO payments (request_id, amount_etb, provider, provider_ref, status)
 		VALUES ($1, $2, $3, $4, 'pending')
@@ -539,7 +551,7 @@ func (s *Store) InitiatePayment(ctx context.Context, requestID int64, amount flo
 	return payment, err
 }
 
-func (s *Store) GetRequestMessagingParticipants(ctx context.Context, requestID int64) (int64, int64, string, error) {
+func (s *sqlStore) GetRequestMessagingParticipants(ctx context.Context, requestID int64) (int64, int64, string, error) {
 	q := `
 		SELECT sr.customer_id, wp.user_id, sr.status
 		FROM service_requests sr
@@ -557,7 +569,7 @@ func (s *Store) GetRequestMessagingParticipants(ctx context.Context, requestID i
 	return customerUserID, workerUserID, status, nil
 }
 
-func (s *Store) UpsertMessageConversation(ctx context.Context, requestID, customerUserID, workerUserID int64) (int64, error) {
+func (s *sqlStore) UpsertMessageConversation(ctx context.Context, requestID, customerUserID, workerUserID int64) (int64, error) {
 	q := `
 		INSERT INTO message_conversations (request_id, customer_user_id, worker_user_id, updated_at)
 		VALUES ($1, $2, $3, NOW())
@@ -585,7 +597,7 @@ func (s *Store) UpsertMessageConversation(ctx context.Context, requestID, custom
 	return conversationID, nil
 }
 
-func (s *Store) ListMessageConversations(ctx context.Context, userID int64) ([]db.MessageConversation, error) {
+func (s *sqlStore) ListMessageConversations(ctx context.Context, userID int64) ([]db.MessageConversation, error) {
 	q := `
 		SELECT
 			c.id,
@@ -636,7 +648,7 @@ func (s *Store) ListMessageConversations(ctx context.Context, userID int64) ([]d
 	return items, rows.Err()
 }
 
-func (s *Store) CreateMessage(ctx context.Context, conversationID, requestID, senderUserID int64, body, messageType string) (db.Message, error) {
+func (s *sqlStore) CreateMessage(ctx context.Context, conversationID, requestID, senderUserID int64, body, messageType string) (db.Message, error) {
 	q := `
 		WITH inserted AS (
 			INSERT INTO messages (conversation_id, request_id, sender_user_id, body, message_type)
@@ -662,7 +674,7 @@ func (s *Store) CreateMessage(ctx context.Context, conversationID, requestID, se
 	return item, err
 }
 
-func (s *Store) ListMessages(ctx context.Context, conversationID int64, limit int, beforeID int64) ([]db.Message, error) {
+func (s *sqlStore) ListMessages(ctx context.Context, conversationID int64, limit int, beforeID int64) ([]db.Message, error) {
 	q := `
 		SELECT m.id, m.conversation_id, m.request_id, m.sender_user_id, u.full_name, m.body, m.message_type, m.created_at
 		FROM messages m
@@ -707,7 +719,7 @@ func (s *Store) ListMessages(ctx context.Context, conversationID int64, limit in
 	return items, nil
 }
 
-func (s *Store) MarkConversationRead(ctx context.Context, conversationID, userID int64) error {
+func (s *sqlStore) MarkConversationRead(ctx context.Context, conversationID, userID int64) error {
 	q := `
 		WITH latest AS (
 			SELECT id
@@ -727,7 +739,7 @@ func (s *Store) MarkConversationRead(ctx context.Context, conversationID, userID
 	return err
 }
 
-func (s *Store) CustomerDashboard(ctx context.Context, customerID int64) (db.CustomerDashboard, error) {
+func (s *sqlStore) CustomerDashboard(ctx context.Context, customerID int64) (db.CustomerDashboard, error) {
 	q := `
 		SELECT
 			COUNT(*)::int AS total_requests,
@@ -742,7 +754,7 @@ func (s *Store) CustomerDashboard(ctx context.Context, customerID int64) (db.Cus
 	return out, err
 }
 
-func (s *Store) WorkerDashboard(ctx context.Context, workerUserID int64) (db.WorkerDashboard, error) {
+func (s *sqlStore) WorkerDashboard(ctx context.Context, workerUserID int64) (db.WorkerDashboard, error) {
 	q := `
 		SELECT
 			COUNT(*) FILTER (WHERE sr.status = 'pending')::int AS incoming_pending,
@@ -765,7 +777,7 @@ func (s *Store) WorkerDashboard(ctx context.Context, workerUserID int64) (db.Wor
 	return out, err
 }
 
-func (s *Store) AdminDashboard(ctx context.Context) (db.AdminDashboard, error) {
+func (s *sqlStore) AdminDashboard(ctx context.Context) (db.AdminDashboard, error) {
 	q := `
 		SELECT
 			(SELECT COUNT(*)::int FROM users),
@@ -786,7 +798,7 @@ func (s *Store) AdminDashboard(ctx context.Context) (db.AdminDashboard, error) {
 	return out, err
 }
 
-func (s *Store) PendingWorkerVerifications(ctx context.Context) ([]db.WorkerCard, error) {
+func (s *sqlStore) PendingWorkerVerifications(ctx context.Context) ([]db.WorkerCard, error) {
 	q := `
 		SELECT
 			wp.id,
@@ -838,7 +850,7 @@ func (s *Store) PendingWorkerVerifications(ctx context.Context) ([]db.WorkerCard
 	return workers, rows.Err()
 }
 
-func (s *Store) VerifyWorker(ctx context.Context, workerID int64, verified bool) error {
+func (s *sqlStore) VerifyWorker(ctx context.Context, workerID int64, verified bool) error {
 	q := `
 		UPDATE worker_profiles
 		SET is_verified = $1, updated_at = NOW()
@@ -858,7 +870,7 @@ func (s *Store) VerifyWorker(ctx context.Context, workerID int64, verified bool)
 	return nil
 }
 
-func (s *Store) WorkerProfileByUserID(ctx context.Context, userID int64) (int64, bool, error) {
+func (s *sqlStore) WorkerProfileByUserID(ctx context.Context, userID int64) (int64, bool, error) {
 	q := `SELECT id, is_verified FROM worker_profiles WHERE user_id = $1`
 	var workerID int64
 	var verified bool
@@ -869,14 +881,14 @@ func (s *Store) WorkerProfileByUserID(ctx context.Context, userID int64) (int64,
 	return workerID, verified, nil
 }
 
-func (s *Store) RequestBelongsToCustomer(ctx context.Context, requestID, customerID int64) (bool, error) {
+func (s *sqlStore) RequestBelongsToCustomer(ctx context.Context, requestID, customerID int64) (bool, error) {
 	q := `SELECT EXISTS(SELECT 1 FROM service_requests WHERE id = $1 AND customer_id = $2)`
 	var exists bool
 	err := s.db.QueryRowContext(ctx, q, requestID, customerID).Scan(&exists)
 	return exists, err
 }
 
-func (s *Store) scanServiceRequests(ctx context.Context, q string, arg any) ([]db.ServiceRequestView, error) {
+func (s *sqlStore) scanServiceRequests(ctx context.Context, q string, arg any) ([]db.ServiceRequestView, error) {
 	rows, err := s.db.QueryContext(ctx, q, arg)
 	if err != nil {
 		return nil, err
@@ -927,3 +939,5 @@ func IsNotFound(err error) bool {
 func BuildPaymentReference(provider string, requestID int64) string {
 	return fmt.Sprintf("%s-%d-%d", strings.ToUpper(provider), requestID, time.Now().Unix())
 }
+
+var _ Store = (*sqlStore)(nil)

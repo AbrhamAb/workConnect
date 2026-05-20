@@ -8,7 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func RegisterMessageRoutes(r chi.Router, handler rest.Handler) {
+func RegisterMessageRoutes(r chi.Router, handler rest.MessageHandler) {
 	authMiddleware := middleware.Auth(handler.Module().WorkConnect)
 	r.Use(authMiddleware)
 	r.Use(middleware.RequireRoles(db.RoleCustomer, db.RoleWorker))

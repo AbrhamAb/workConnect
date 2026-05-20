@@ -8,7 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func RegisterAdminRoutes(r chi.Router, handler rest.Handler) {
+func RegisterAdminRoutes(r chi.Router, handler rest.AdminHandler) {
 	authMiddleware := middleware.Auth(handler.Module().WorkConnect)
 	r.Use(authMiddleware)
 	r.Use(middleware.RequireRoles(db.RoleAdmin))

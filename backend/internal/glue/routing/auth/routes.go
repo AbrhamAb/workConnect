@@ -7,7 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func RegisterAuthRoutes(r chi.Router, handler rest.Handler) {
+func RegisterAuthRoutes(r chi.Router, handler rest.AuthHandler) {
 	authMiddleware := middleware.Auth(handler.Module().WorkConnect)
 
 	r.Post("/register", handler.Register)

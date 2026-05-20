@@ -8,7 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func RegisterWorkerRoutes(r chi.Router, handler rest.Handler) {
+func RegisterWorkerRoutes(r chi.Router, handler rest.WorkerHandler) {
 	authMiddleware := middleware.Auth(handler.Module().WorkConnect)
 	r.Use(authMiddleware)
 	r.Use(middleware.RequireRoles(db.RoleWorker))

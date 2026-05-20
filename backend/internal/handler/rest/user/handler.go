@@ -71,13 +71,13 @@ func (h *Handler) Login(w nethttp.ResponseWriter, r *nethttp.Request) {
 	//   if err := req.Validate(); err != nil {
 	// 	return
 	//   }
-	token, user, err := h.Module().WorkConnect.Login(r.Context(), req)
+	loginResp, err := h.Module().WorkConnect.Login(r.Context(), req)
 	if err != nil {
 		h.writeError(w, r, err)
 		return
 	}
 
-	response.SendSuccessResponse(w, r, nethttp.StatusOK, nethttp.StatusText(nethttp.StatusOK), h.authResponse(r.Context(), token, user))
+	response.SendSuccessResponse(w, r, nethttp.StatusOK, nethttp.StatusText(nethttp.StatusOK), h.authResponseFromLoginResp(r.Context(), loginResp))
 }
 
 func (h *Handler) Me(w nethttp.ResponseWriter, r *nethttp.Request) {
@@ -305,6 +305,23 @@ func (h *Handler) authResponse(ctx context.Context, token string, user db.User) 
 	resp := response.AuthResponse{Token: token, User: user}
 	if user.Role == db.RoleWorker {
 		if workerProfileID, _, err := h.Module().WorkConnect.GetWorkerProfileInfo(ctx, user.ID); err == nil {
+			resp.WorkerProfileID = &workerProfileID
+		}
+	}
+	return resp
+}
+
+func (h *Handler) authResponseFromLoginResp(ctx context.Context, loginResp *dto.UserLoginResponse) response.AuthResponse {
+	resp := response.AuthResponse{
+		Token: loginResp.Token,
+		User: db.User{
+			ID:       loginResp.ID,
+			FullName: loginResp.FullName,
+			Role:     loginResp.Role,
+		},
+	}
+	if loginResp.Role == db.RoleWorker {
+		if workerProfileID, _, err := h.Module().WorkConnect.GetWorkerProfileInfo(ctx, loginResp.ID); err == nil {
 			resp.WorkerProfileID = &workerProfileID
 		}
 	}
