@@ -97,14 +97,12 @@ func (h *Handler) Me(w nethttp.ResponseWriter, r *nethttp.Request) {
 }
 
 func (h *Handler) ListWorkers(w nethttp.ResponseWriter, r *nethttp.Request) {
-	query := dto.WorkerSearchQuery{
-		Category: r.URL.Query().Get("category"),
-		City:     r.URL.Query().Get("city"),
-		Q:        r.URL.Query().Get("q"),
-		Sort:     r.URL.Query().Get("sort"),
-	}
+	category := r.URL.Query().Get("category")
+	city := r.URL.Query().Get("city")
+	q := r.URL.Query().Get("q")
+	sort := r.URL.Query().Get("sort")
 
-	workers, err := h.Module().WorkConnect.ListWorkers(r.Context(), query)
+	workers, err := h.Module().WorkConnect.ListWorkers(r.Context(), category, city, q, sort)
 	if err != nil {
 		h.writeError(w, r, err)
 		return
@@ -253,10 +251,7 @@ func (h *Handler) ListMessagesByRequest(w nethttp.ResponseWriter, r *nethttp.Req
 		beforeID = parsedBeforeID
 	}
 
-	items, err := h.Module().WorkConnect.ListMessagesByRequest(r.Context(), principal.UserID, requestID, dto.ListMessagesQuery{
-		Limit:    limit,
-		BeforeID: beforeID,
-	})
+	items, err := h.Module().WorkConnect.ListMessagesByRequest(r.Context(), principal.UserID, requestID, dto.ListMessagesQuery{Limit: limit, BeforeID: beforeID})
 	if err != nil {
 		h.writeError(w, r, err)
 		return

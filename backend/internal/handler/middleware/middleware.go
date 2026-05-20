@@ -29,7 +29,7 @@ func CORS(next http.Handler) http.Handler {
 	})
 }
 
-func Auth(workconnectModule module.WorkConnectService) func(next http.Handler) http.Handler {
+func Auth(workConnect module.WorkConnectService) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
@@ -44,7 +44,7 @@ func Auth(workconnectModule module.WorkConnectService) func(next http.Handler) h
 				return
 			}
 
-			principal, err := workconnectModule.ParseToken(split[1])
+			principal, err := workConnect.ParseToken(split[1])
 			if err != nil {
 				response.SendErrorResponse(w, r, apperrors.ErrUnauthorized)
 				return
