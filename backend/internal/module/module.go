@@ -30,13 +30,13 @@ type WorkConnectService interface {
 	CompleteWorkerRequest(ctx context.Context, workerUserID, requestID int64) (db.ServiceRequestView, error)
 	UpdateWorkerAvailability(ctx context.Context, workerUserID int64, req dto.UpdateAvailabilityRequest) error
 	SubmitReview(ctx context.Context, customerID, requestID int64, req dto.SubmitReviewRequest) error
-	InitiatePayment(ctx context.Context, customerID, requestID int64, req dto.InitiatePaymentRequest) (db.Payment, error)
+	InitiatePayment(ctx context.Context, customerID, requestID int64, req dto.InitiatePaymentRequest) (db.Review, error)
 	CustomerDashboard(ctx context.Context, customerID int64) (db.CustomerDashboard, error)
 	WorkerDashboard(ctx context.Context, workerUserID int64) (db.WorkerDashboard, error)
 	AdminDashboard(ctx context.Context) (db.AdminDashboard, error)
 	PendingWorkerVerifications(ctx context.Context) ([]db.WorkerCard, error)
 	VerifyWorker(ctx context.Context, workerID int64, verified bool) error
-	ListMessageConversations(ctx context.Context, userID int64) ([]db.MessageConversation, error)
+	ListMessageConversations(ctx context.Context, userID int64) ([]db.Conversation, error)
 	ListMessagesByRequest(ctx context.Context, userID, requestID int64, query dto.ListMessagesQuery) ([]db.Message, error)
 	SendMessage(ctx context.Context, userID, requestID int64, req dto.SendMessageRequest) (db.Message, error)
 	ParseToken(tokenString string) (user.AuthPrincipal, error)

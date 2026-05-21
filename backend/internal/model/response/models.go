@@ -67,7 +67,7 @@ type PendingWorkersResponse struct {
 }
 
 type PaymentResponse struct {
-	Payment db.Payment `json:"payment"`
+	Payment db.Review `json:"payment"`
 }
 
 type MessageResponse struct {
@@ -75,7 +75,7 @@ type MessageResponse struct {
 }
 
 type MessageConversationsResponse struct {
-	Conversations []db.MessageConversation `json:"conversations"`
+	Conversations []db.Conversation `json:"conversations"`
 }
 
 type MessageListResponse struct {

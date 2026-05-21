@@ -38,45 +38,47 @@ func Connect(connectionString string) (*sql.DB, error) {
 
 func migrate(ctx context.Context, db *sql.DB) error {
 	schema := `
-		CREATE TABLE IF NOT EXISTS users (
-			id BIGSERIAL PRIMARY KEY,
-			full_name VARCHAR(100) NOT NULL,
-			email VARCHAR(255) UNIQUE NOT NULL,
-			phone VARCHAR(20) NOT NULL,
-			role VARCHAR(20) NOT NULL CHECK (role IN ('customer', 'worker', 'admin')),
-			is_active BOOLEAN NOT NULL DEFAULT TRUE,
-				email_verified BOOLEAN NOT NULL DEFAULT FALSE,
-				phone_verified BOOLEAN NOT NULL DEFAULT FALSE,
-			password_hash TEXT NOT NULL,
-			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-		);
+ 		-- Merged schema: users absorbs worker_profiles and worker_notification_preferences
+ 		CREATE TABLE IF NOT EXISTS users (
+ 			id BIGSERIAL PRIMARY KEY,
+ 			full_name VARCHAR(100) NOT NULL,
+ 			email VARCHAR(255) UNIQUE NOT NULL,
+ 			phone VARCHAR(20) NOT NULL,
+ 			role VARCHAR(20) NOT NULL CHECK (role IN ('customer', 'worker', 'admin')),
+ 			is_active BOOLEAN NOT NULL DEFAULT TRUE,
+ 			email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+ 			phone_verified BOOLEAN NOT NULL DEFAULT FALSE,
+ 			password_hash TEXT NOT NULL,
+ 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-		CREATE TABLE IF NOT EXISTS worker_profiles (
-			id BIGSERIAL PRIMARY KEY,
-			user_id BIGINT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
-			headline VARCHAR(120) NOT NULL DEFAULT 'Verified Professional',
-			bio TEXT NOT NULL DEFAULT '',
-			city VARCHAR(100) NOT NULL DEFAULT 'Addis Ababa',
-				subcity VARCHAR(100) NOT NULL DEFAULT '',
-				profile_picture_url TEXT NOT NULL DEFAULT '',
-			experience_years INT NOT NULL DEFAULT 0,
-			hourly_rate_etb NUMERIC(12,2) NOT NULL DEFAULT 0,
-			availability_status VARCHAR(20) NOT NULL DEFAULT 'available' CHECK (availability_status IN ('available', 'busy')),
-			is_verified BOOLEAN NOT NULL DEFAULT FALSE,
-				verification_status VARCHAR(20) NOT NULL DEFAULT 'not_submitted' CHECK (verification_status IN ('not_submitted', 'pending', 'approved', 'rejected')),
-				onboarding_step SMALLINT NOT NULL DEFAULT 1,
-				onboarding_completed BOOLEAN NOT NULL DEFAULT FALSE,
-				profile_strength_score SMALLINT NOT NULL DEFAULT 0 CHECK (profile_strength_score BETWEEN 0 AND 100),
-				response_rate NUMERIC(5,2) NOT NULL DEFAULT 0,
-				reliability_score NUMERIC(5,2) NOT NULL DEFAULT 0,
-			rating_average NUMERIC(3,2) NOT NULL DEFAULT 0,
-			rating_count INT NOT NULL DEFAULT 0,
-			completed_jobs INT NOT NULL DEFAULT 0,
-			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-		);
+ 			-- worker/profile fields (nullable for non-workers)
+ 			headline VARCHAR(120) DEFAULT 'Verified Professional',
+ 			bio TEXT DEFAULT '',
+ 			city VARCHAR(100) DEFAULT 'Addis Ababa',
+ 			subcity VARCHAR(100) DEFAULT '',
+ 			profile_picture_url TEXT DEFAULT '',
+ 			experience_years INT DEFAULT 0,
+ 			hourly_rate_etb NUMERIC(12,2) DEFAULT 0,
+ 			availability_status VARCHAR(20) DEFAULT 'available' CHECK (availability_status IN ('available', 'busy')),
+ 			is_verified BOOLEAN DEFAULT FALSE,
+ 			verification_status VARCHAR(20) DEFAULT 'not_submitted',
+ 			onboarding_step SMALLINT DEFAULT 1,
+ 			onboarding_completed BOOLEAN DEFAULT FALSE,
+ 			profile_strength_score SMALLINT DEFAULT 0 CHECK (profile_strength_score BETWEEN 0 AND 100),
+ 			response_rate NUMERIC(5,2) DEFAULT 0,
+ 			reliability_score NUMERIC(5,2) DEFAULT 0,
+ 			rating_average NUMERIC(3,2) DEFAULT 0,
+ 			rating_count INT DEFAULT 0,
+ 			completed_jobs INT DEFAULT 0,
 
+ 			-- notification prefs (merged), renamed timestamp to avoid clash
+ 			receive_job_alerts BOOLEAN DEFAULT TRUE,
+ 			receive_marketing BOOLEAN DEFAULT FALSE,
+ 			notification_updated_at TIMESTAMPTZ
+ 		);
+
+		-- service categories (unchanged)
 		CREATE TABLE IF NOT EXISTS service_categories (
 			id BIGSERIAL PRIMARY KEY,
 			name VARCHAR(100) UNIQUE NOT NULL,
@@ -84,73 +86,62 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			description TEXT NOT NULL DEFAULT ''
 		);
 
+		-- worker_skills now references users(id)
 		CREATE TABLE IF NOT EXISTS worker_skills (
-			worker_id BIGINT NOT NULL REFERENCES worker_profiles(id) ON DELETE CASCADE,
+			worker_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 			category_id BIGINT NOT NULL REFERENCES service_categories(id) ON DELETE CASCADE,
 			PRIMARY KEY (worker_id, category_id)
 		);
 
-			CREATE TABLE IF NOT EXISTS worker_verification_requests (
-				id BIGSERIAL PRIMARY KEY,
-				worker_id BIGINT NOT NULL REFERENCES worker_profiles(id) ON DELETE CASCADE,
-				status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_review', 'approved', 'rejected')),
-				submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-				reviewed_at TIMESTAMPTZ,
-				reviewed_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
-				rejection_reason TEXT NOT NULL DEFAULT '',
-				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-			);
+		-- merged worker_verification (requests + documents)
+		CREATE TABLE IF NOT EXISTS worker_verification (
+			id BIGSERIAL PRIMARY KEY,
+			worker_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_review', 'approved', 'rejected')),
+			submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			reviewed_at TIMESTAMPTZ,
+			reviewed_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+			rejection_reason TEXT NOT NULL DEFAULT '',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-			CREATE TABLE IF NOT EXISTS worker_documents (
-				id BIGSERIAL PRIMARY KEY,
-				worker_id BIGINT NOT NULL REFERENCES worker_profiles(id) ON DELETE CASCADE,
-				document_type VARCHAR(50) NOT NULL CHECK (document_type IN ('government_id', 'professional_certificate', 'business_license', 'other')),
-				file_url TEXT NOT NULL,
-				file_name VARCHAR(255) NOT NULL DEFAULT '',
-				mime_type VARCHAR(100) NOT NULL DEFAULT '',
-				file_size_bytes BIGINT NOT NULL DEFAULT 0,
-				status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
-				review_notes TEXT NOT NULL DEFAULT '',
-				uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-				UNIQUE (worker_id, document_type)
-			);
+			-- document fields (one row per document linked to a verification record)
+			document_type VARCHAR(50),
+			file_url TEXT,
+			file_name VARCHAR(255),
+			mime_type VARCHAR(100),
+			file_size_bytes BIGINT,
+			doc_status VARCHAR(20),
+			review_notes TEXT,
+			uploaded_at TIMESTAMPTZ,
+			UNIQUE (worker_id, document_type)
+		);
 
-			CREATE TABLE IF NOT EXISTS worker_portfolio_projects (
-				id BIGSERIAL PRIMARY KEY,
-				worker_id BIGINT NOT NULL REFERENCES worker_profiles(id) ON DELETE CASCADE,
-				title VARCHAR(140) NOT NULL,
-				description TEXT NOT NULL DEFAULT '',
-				cover_image_url TEXT NOT NULL DEFAULT '',
-				city VARCHAR(100) NOT NULL DEFAULT '',
-				completed_at TIMESTAMPTZ,
-				is_published BOOLEAN NOT NULL DEFAULT TRUE,
-				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-			);
+		-- merged worker_portfolio (projects + media)
+		CREATE TABLE IF NOT EXISTS worker_portfolio (
+			id BIGSERIAL PRIMARY KEY,
+			worker_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			title VARCHAR(140) NOT NULL,
+			description TEXT NOT NULL DEFAULT '',
+			cover_image_url TEXT NOT NULL DEFAULT '',
+			city VARCHAR(100) NOT NULL DEFAULT '',
+			completed_at TIMESTAMPTZ,
+			is_published BOOLEAN NOT NULL DEFAULT TRUE,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-			CREATE TABLE IF NOT EXISTS worker_portfolio_media (
-				id BIGSERIAL PRIMARY KEY,
-				portfolio_project_id BIGINT NOT NULL REFERENCES worker_portfolio_projects(id) ON DELETE CASCADE,
-				media_url TEXT NOT NULL,
-				media_type VARCHAR(20) NOT NULL DEFAULT 'image' CHECK (media_type IN ('image', 'video')),
-				display_order INT NOT NULL DEFAULT 0,
-				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-			);
+			-- media fields (denormalized into portfolio row)
+			media_url TEXT,
+			media_type VARCHAR(20) DEFAULT 'image' CHECK (media_type IN ('image', 'video')),
+			display_order INT DEFAULT 0
+		);
 
-			CREATE TABLE IF NOT EXISTS worker_notification_preferences (
-				worker_id BIGINT PRIMARY KEY REFERENCES worker_profiles(id) ON DELETE CASCADE,
-				receive_job_alerts BOOLEAN NOT NULL DEFAULT TRUE,
-				receive_marketing BOOLEAN NOT NULL DEFAULT FALSE,
-				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-			);
-
+		-- service requests: worker_id now references users(id)
 		CREATE TABLE IF NOT EXISTS service_requests (
 			id BIGSERIAL PRIMARY KEY,
 			reference_code VARCHAR(30) UNIQUE NOT NULL,
 			customer_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			worker_id BIGINT NOT NULL REFERENCES worker_profiles(id) ON DELETE CASCADE,
+			worker_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 			category_id BIGINT NOT NULL REFERENCES service_categories(id),
 			title VARCHAR(120) NOT NULL,
 			description TEXT NOT NULL,
@@ -163,30 +154,30 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
 
+		-- reviews absorbs payments columns (payments become nullable fields on reviews)
 		CREATE TABLE IF NOT EXISTS reviews (
 			id BIGSERIAL PRIMARY KEY,
 			request_id BIGINT UNIQUE NOT NULL REFERENCES service_requests(id) ON DELETE CASCADE,
 			customer_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			worker_id BIGINT NOT NULL REFERENCES worker_profiles(id) ON DELETE CASCADE,
+			worker_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 			rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
 			comment TEXT NOT NULL DEFAULT '',
-			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-		);
-
-		CREATE TABLE IF NOT EXISTS payments (
-			id BIGSERIAL PRIMARY KEY,
-			request_id BIGINT NOT NULL REFERENCES service_requests(id) ON DELETE CASCADE,
-			amount_etb NUMERIC(12,2) NOT NULL,
-			currency VARCHAR(10) NOT NULL DEFAULT 'ETB',
-			provider VARCHAR(20) NOT NULL,
-			provider_ref VARCHAR(50) NOT NULL,
-			status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'failed')),
-			paid_at TIMESTAMPTZ,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+
+			-- payments (nullable, merged)
+			payment_id BIGINT,
+			amount_etb NUMERIC(12,2),
+			currency VARCHAR(10),
+			provider VARCHAR(20),
+			provider_ref VARCHAR(50),
+			payment_status VARCHAR(20) CHECK (payment_status IN ('pending', 'paid', 'failed')),
+			paid_at TIMESTAMPTZ,
+			payment_created_at TIMESTAMPTZ,
+			payment_updated_at TIMESTAMPTZ
 		);
 
-		CREATE TABLE IF NOT EXISTS message_conversations (
+		-- conversations (message_conversations + message_conversation_reads merged)
+		CREATE TABLE IF NOT EXISTS conversations (
 			id BIGSERIAL PRIMARY KEY,
 			request_id BIGINT NOT NULL UNIQUE REFERENCES service_requests(id) ON DELETE CASCADE,
 			customer_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -195,12 +186,19 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			last_message_at TIMESTAMPTZ,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-			CHECK (customer_user_id <> worker_user_id)
+			CHECK (customer_user_id <> worker_user_id),
+
+			-- denormalized read cursors (no FK yet; FK added after messages table exists)
+			customer_last_read_message_id BIGINT,
+			customer_last_read_at TIMESTAMPTZ,
+			worker_last_read_message_id BIGINT,
+			worker_last_read_at TIMESTAMPTZ
 		);
 
+		-- messages remains a child table of conversations
 		CREATE TABLE IF NOT EXISTS messages (
 			id BIGSERIAL PRIMARY KEY,
-			conversation_id BIGINT NOT NULL REFERENCES message_conversations(id) ON DELETE CASCADE,
+			conversation_id BIGINT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
 			request_id BIGINT NOT NULL REFERENCES service_requests(id) ON DELETE CASCADE,
 			sender_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 			body TEXT NOT NULL,
@@ -208,24 +206,41 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
 
-		CREATE TABLE IF NOT EXISTS message_conversation_reads (
-			conversation_id BIGINT NOT NULL REFERENCES message_conversations(id) ON DELETE CASCADE,
-			user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			last_read_message_id BIGINT REFERENCES messages(id) ON DELETE SET NULL,
-			last_read_at TIMESTAMPTZ,
-			PRIMARY KEY (conversation_id, user_id)
-		);
+		-- after messages exists, add FK constraints linking conversations' last_read_message_id columns to messages
+		DO $$
+		BEGIN
+			IF NOT EXISTS (
+				SELECT 1 FROM pg_constraint WHERE conname = 'conversations_customer_last_read_fk'
+			) THEN
+				ALTER TABLE conversations
+					ADD CONSTRAINT conversations_customer_last_read_fk
+					FOREIGN KEY (customer_last_read_message_id) REFERENCES messages(id) ON DELETE SET NULL;
+			END IF;
+		END
+		$$;
 
+		DO $$
+		BEGIN
+			IF NOT EXISTS (
+				SELECT 1 FROM pg_constraint WHERE conname = 'conversations_worker_last_read_fk'
+			) THEN
+				ALTER TABLE conversations
+					ADD CONSTRAINT conversations_worker_last_read_fk
+					FOREIGN KEY (worker_last_read_message_id) REFERENCES messages(id) ON DELETE SET NULL;
+			END IF;
+		END
+		$$;
+
+		-- trigger functions updated to use conversations/messages
 		CREATE OR REPLACE FUNCTION validate_message_conversation() RETURNS TRIGGER AS $$
 		DECLARE
 			request_customer_id BIGINT;
 			request_worker_user_id BIGINT;
 			request_status TEXT;
 		BEGIN
-			SELECT sr.customer_id, wp.user_id, sr.status
+			SELECT sr.customer_id, sr.worker_id, sr.status
 			INTO request_customer_id, request_worker_user_id, request_status
 			FROM service_requests sr
-			INNER JOIN worker_profiles wp ON wp.id = sr.worker_id
 			WHERE sr.id = NEW.request_id;
 
 			IF request_status IS NULL THEN
@@ -252,7 +267,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		BEGIN
 			SELECT c.customer_user_id, c.worker_user_id, c.request_id
 			INTO conversation_customer_id, conversation_worker_id, conversation_request_id
-			FROM message_conversations c
+			FROM conversations c
 			WHERE c.id = NEW.conversation_id;
 
 			IF conversation_request_id IS NULL THEN
@@ -273,7 +288,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 
 		CREATE OR REPLACE FUNCTION sync_conversation_last_message() RETURNS TRIGGER AS $$
 		BEGIN
-			UPDATE message_conversations
+			UPDATE conversations
 			SET last_message_preview = LEFT(NEW.body, 180),
 				last_message_at = NEW.created_at,
 				updated_at = NOW()
@@ -291,7 +306,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 				WHERE tgname = 'trg_validate_message_conversation'
 			) THEN
 				CREATE TRIGGER trg_validate_message_conversation
-				BEFORE INSERT OR UPDATE ON message_conversations
+				BEFORE INSERT OR UPDATE ON conversations
 				FOR EACH ROW
 				EXECUTE FUNCTION validate_message_conversation();
 			END IF;
@@ -328,42 +343,34 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		END
 		$$;
 
+		-- Indexes updated to new table/column names
 		CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
-		CREATE INDEX IF NOT EXISTS idx_worker_profiles_user_id ON worker_profiles(user_id);
-			CREATE INDEX IF NOT EXISTS idx_worker_profiles_verification_status ON worker_profiles(verification_status);
-			CREATE INDEX IF NOT EXISTS idx_worker_profiles_city_availability ON worker_profiles(city, availability_status);
+		CREATE INDEX IF NOT EXISTS idx_users_verification_status ON users(verification_status);
+		CREATE INDEX IF NOT EXISTS idx_users_city_availability ON users(city, availability_status);
 		CREATE INDEX IF NOT EXISTS idx_service_requests_customer_id ON service_requests(customer_id);
 		CREATE INDEX IF NOT EXISTS idx_service_requests_worker_id ON service_requests(worker_id);
 		CREATE INDEX IF NOT EXISTS idx_service_requests_status ON service_requests(status);
-			CREATE INDEX IF NOT EXISTS idx_worker_verification_requests_worker_id ON worker_verification_requests(worker_id);
-			CREATE INDEX IF NOT EXISTS idx_worker_verification_requests_status ON worker_verification_requests(status);
-			CREATE INDEX IF NOT EXISTS idx_worker_documents_worker_id ON worker_documents(worker_id);
-			CREATE INDEX IF NOT EXISTS idx_worker_portfolio_projects_worker_id ON worker_portfolio_projects(worker_id);
-			CREATE INDEX IF NOT EXISTS idx_message_conversations_customer ON message_conversations(customer_user_id);
-			CREATE INDEX IF NOT EXISTS idx_message_conversations_worker ON message_conversations(worker_user_id);
-			CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
-			CREATE INDEX IF NOT EXISTS idx_messages_request_id ON messages(request_id);
+		CREATE INDEX IF NOT EXISTS idx_worker_verification_worker_id ON worker_verification(worker_id);
+		CREATE INDEX IF NOT EXISTS idx_worker_verification_status ON worker_verification(status);
+		CREATE INDEX IF NOT EXISTS idx_worker_portfolio_worker_id ON worker_portfolio(worker_id);
+		CREATE INDEX IF NOT EXISTS idx_conversations_customer ON conversations(customer_user_id);
+		CREATE INDEX IF NOT EXISTS idx_conversations_worker ON conversations(worker_user_id);
+		CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
+		CREATE INDEX IF NOT EXISTS idx_messages_request_id ON messages(request_id);
 
-			ALTER TABLE users
-				ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE,
-				ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN NOT NULL DEFAULT FALSE;
+		-- Keep users columns idempotent
+		ALTER TABLE users
+			ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+			ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN NOT NULL DEFAULT FALSE;
 
-			ALTER TABLE worker_profiles
-				ADD COLUMN IF NOT EXISTS subcity VARCHAR(100) NOT NULL DEFAULT '',
-				ADD COLUMN IF NOT EXISTS profile_picture_url TEXT NOT NULL DEFAULT '',
-				ADD COLUMN IF NOT EXISTS verification_status VARCHAR(20) NOT NULL DEFAULT 'not_submitted',
-				ADD COLUMN IF NOT EXISTS onboarding_step SMALLINT NOT NULL DEFAULT 1,
-				ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN NOT NULL DEFAULT FALSE,
-				ADD COLUMN IF NOT EXISTS profile_strength_score SMALLINT NOT NULL DEFAULT 0,
-				ADD COLUMN IF NOT EXISTS response_rate NUMERIC(5,2) NOT NULL DEFAULT 0,
-				ADD COLUMN IF NOT EXISTS reliability_score NUMERIC(5,2) NOT NULL DEFAULT 0;
+		-- Add verification_status check constraint on users (preserve original check)
+		ALTER TABLE users
+			DROP CONSTRAINT IF EXISTS users_verification_status_check;
 
-			ALTER TABLE worker_profiles
-				DROP CONSTRAINT IF EXISTS worker_profiles_verification_status_check;
+		ALTER TABLE users
+			ADD CONSTRAINT users_verification_status_check
+			CHECK (verification_status IN ('not_submitted', 'pending', 'approved', 'rejected'));
 
-			ALTER TABLE worker_profiles
-				ADD CONSTRAINT worker_profiles_verification_status_check
-				CHECK (verification_status IN ('not_submitted', 'pending', 'approved', 'rejected'));
 
 		INSERT INTO service_categories (name, slug, description)
 		SELECT * FROM (VALUES

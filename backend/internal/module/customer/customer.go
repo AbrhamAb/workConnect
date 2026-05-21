@@ -60,16 +60,16 @@ func (c *CustomerModule) SubmitReview(ctx context.Context, customerID, requestID
 	return nil
 }
 
-func (c *CustomerModule) InitiatePayment(ctx context.Context, customerID, requestID int64, req dto.InitiatePaymentRequest) (db.Payment, error) {
+func (c *CustomerModule) InitiatePayment(ctx context.Context, customerID, requestID int64, req dto.InitiatePaymentRequest) (db.Review, error) {
 	if err := req.Validate(); err != nil {
-		return db.Payment{}, err
+		return db.Review{}, err
 	}
 	exists, err := c.store.RequestBelongsToCustomer(ctx, requestID, customerID)
 	if err != nil {
-		return db.Payment{}, err
+		return db.Review{}, err
 	}
 	if !exists {
-		return db.Payment{}, apperrors.ErrForbidden
+		return db.Review{}, apperrors.ErrForbidden
 	}
 	ref := persistence.BuildPaymentReference(req.Provider, requestID)
 	return c.store.InitiatePayment(ctx, requestID, req.AmountETB, req.Provider, ref)

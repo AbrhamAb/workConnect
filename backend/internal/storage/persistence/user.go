@@ -528,25 +528,25 @@ func (s *sqlStore) RefreshWorkerRating(ctx context.Context, requestID int64) err
 	return err
 }
 
-func (s *sqlStore) InitiatePayment(ctx context.Context, requestID int64, amount float64, provider, providerRef string) (db.Payment, error) {
+func (s *sqlStore) InitiatePayment(ctx context.Context, requestID int64, amount float64, provider, providerRef string) (db.Review, error) {
 	q := `
 		INSERT INTO payments (request_id, amount_etb, provider, provider_ref, status)
 		VALUES ($1, $2, $3, $4, 'pending')
 		RETURNING id, request_id, amount_etb, currency, provider, provider_ref, status, paid_at, created_at, updated_at
 	`
 
-	var payment db.Payment
+	var payment db.Review
 	err := s.db.QueryRowContext(ctx, q, requestID, amount, provider, providerRef).Scan(
-		&payment.ID,
+		&payment.PaymentID,
 		&payment.RequestID,
 		&payment.AmountETB,
 		&payment.Currency,
 		&payment.Provider,
 		&payment.ProviderRef,
-		&payment.Status,
+		&payment.PaymentStatus,
 		&payment.PaidAt,
-		&payment.CreatedAt,
-		&payment.UpdatedAt,
+		&payment.PaymentCreatedAt,
+		&payment.PaymentUpdatedAt,
 	)
 	return payment, err
 }
@@ -597,7 +597,7 @@ func (s *sqlStore) UpsertMessageConversation(ctx context.Context, requestID, cus
 	return conversationID, nil
 }
 
-func (s *sqlStore) ListMessageConversations(ctx context.Context, userID int64) ([]db.MessageConversation, error) {
+func (s *sqlStore) ListMessageConversations(ctx context.Context, userID int64) ([]db.Conversation, error) {
 	q := `
 		SELECT
 			c.id,
@@ -628,17 +628,20 @@ func (s *sqlStore) ListMessageConversations(ctx context.Context, userID int64) (
 	}
 	defer rows.Close()
 
-	items := make([]db.MessageConversation, 0)
+	items := make([]db.Conversation, 0)
 	for rows.Next() {
-		var item db.MessageConversation
+		var item db.Conversation
+		var otherPartyUserID int64
+		var otherPartyName string
+		var unreadCount int
 		if err = rows.Scan(
 			&item.ID,
 			&item.RequestID,
-			&item.OtherPartyUserID,
-			&item.OtherPartyName,
+			&otherPartyUserID,
+			&otherPartyName,
 			&item.LastMessagePreview,
 			&item.LastMessageAt,
-			&item.UnreadCount,
+			&unreadCount,
 		); err != nil {
 			return nil, err
 		}
@@ -661,12 +664,13 @@ func (s *sqlStore) CreateMessage(ctx context.Context, conversationID, requestID,
 	`
 
 	var item db.Message
+	var senderName string
 	err := s.db.QueryRowContext(ctx, q, conversationID, requestID, senderUserID, body, messageType).Scan(
 		&item.ID,
 		&item.ConversationID,
 		&item.RequestID,
 		&item.SenderUserID,
-		&item.SenderName,
+		&senderName,
 		&item.Body,
 		&item.MessageType,
 		&item.CreatedAt,
@@ -694,12 +698,13 @@ func (s *sqlStore) ListMessages(ctx context.Context, conversationID int64, limit
 	items := make([]db.Message, 0)
 	for rows.Next() {
 		var item db.Message
+		var senderName string
 		if err = rows.Scan(
 			&item.ID,
 			&item.ConversationID,
 			&item.RequestID,
 			&item.SenderUserID,
-			&item.SenderName,
+			&senderName,
 			&item.Body,
 			&item.MessageType,
 			&item.CreatedAt,

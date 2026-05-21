@@ -21,10 +21,10 @@ type Store interface {
 	SetWorkerAvailability(ctx context.Context, workerUserID int64, availability string) error
 	CreateReview(ctx context.Context, requestID, customerID int64, rating int, comment string) error
 	RefreshWorkerRating(ctx context.Context, requestID int64) error
-	InitiatePayment(ctx context.Context, requestID int64, amount float64, provider, providerRef string) (db.Payment, error)
+	InitiatePayment(ctx context.Context, requestID int64, amount float64, provider, providerRef string) (db.Review, error)
 	GetRequestMessagingParticipants(ctx context.Context, requestID int64) (int64, int64, string, error)
 	UpsertMessageConversation(ctx context.Context, requestID, customerUserID, workerUserID int64) (int64, error)
-	ListMessageConversations(ctx context.Context, userID int64) ([]db.MessageConversation, error)
+	ListMessageConversations(ctx context.Context, userID int64) ([]db.Conversation, error)
 	CreateMessage(ctx context.Context, conversationID, requestID, senderUserID int64, body, messageType string) (db.Message, error)
 	ListMessages(ctx context.Context, conversationID int64, limit int, beforeID int64) ([]db.Message, error)
 	MarkConversationRead(ctx context.Context, conversationID, userID int64) error

@@ -24,32 +24,40 @@ const (
 )
 
 type User struct {
-	ID           int64     `json:"id"`
-	FullName     string    `json:"fullName"`
-	Email        string    `json:"email"`
-	Phone        string    `json:"phone"`
-	Role         string    `json:"role"`
-	IsActive     bool      `json:"isActive"`
-	PasswordHash string    `json:"-"`
-	CreatedAt    time.Time `json:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt"`
-}
-
-type WorkerProfile struct {
-	ID                 int64     `json:"id"`
-	UserID             int64     `json:"userId"`
-	Headline           string    `json:"headline"`
-	Bio                string    `json:"bio"`
-	City               string    `json:"city"`
-	ExperienceYears    int       `json:"experienceYears"`
-	HourlyRateETB      float64   `json:"hourlyRateEtb"`
-	AvailabilityStatus string    `json:"availabilityStatus"`
-	IsVerified         bool      `json:"isVerified"`
-	RatingAverage      float64   `json:"ratingAverage"`
-	RatingCount        int       `json:"ratingCount"`
-	CompletedJobs      int       `json:"completedJobs"`
-	CreatedAt          time.Time `json:"createdAt"`
-	UpdatedAt          time.Time `json:"updatedAt"`
+	ID            int64     `db:"id"`
+	FullName      string    `db:"full_name"`
+	Email         string    `db:"email"`
+	Phone         string    `db:"phone"`
+	Role          string    `db:"role"`
+	IsActive      bool      `db:"is_active"`
+	EmailVerified bool      `db:"email_verified"`
+	PhoneVerified bool      `db:"phone_verified"`
+	PasswordHash  string    `db:"password_hash"`
+	CreatedAt     time.Time `db:"created_at"`
+	UpdatedAt     time.Time `db:"updated_at"`
+	// Worker profile fields (nil for customer/admin roles)
+	Headline             *string  `db:"headline"`
+	Bio                  *string  `db:"bio"`
+	City                 *string  `db:"city"`
+	Subcity              *string  `db:"subcity"`
+	ProfilePictureURL    *string  `db:"profile_picture_url"`
+	ExperienceYears      *int     `db:"experience_years"`
+	HourlyRateETB        *float64 `db:"hourly_rate_etb"`
+	AvailabilityStatus   *string  `db:"availability_status"`
+	IsVerified           *bool    `db:"is_verified"`
+	VerificationStatus   *string  `db:"verification_status"`
+	OnboardingStep       *int     `db:"onboarding_step"`
+	OnboardingCompleted  *bool    `db:"onboarding_completed"`
+	ProfileStrengthScore *int     `db:"profile_strength_score"`
+	ResponseRate         *float64 `db:"response_rate"`
+	ReliabilityScore     *float64 `db:"reliability_score"`
+	RatingAverage        *float64 `db:"rating_average"`
+	RatingCount          *int     `db:"rating_count"`
+	CompletedJobs        *int     `db:"completed_jobs"`
+	// Notification preferences (nil for customer/admin roles)
+	ReceiveJobAlerts      *bool      `db:"receive_job_alerts"`
+	ReceiveMarketing      *bool      `db:"receive_marketing"`
+	NotificationUpdatedAt *time.Time `db:"notification_updated_at"`
 }
 
 type WorkerCard struct {
@@ -75,21 +83,33 @@ type WorkerDetails struct {
 	Skills []string   `json:"skills"`
 }
 
+type ServiceCategory struct {
+	ID          int64  `db:"id"`
+	Name        string `db:"name"`
+	Slug        string `db:"slug"`
+	Description string `db:"description"`
+}
+
+type WorkerSkill struct {
+	WorkerID   int64 `db:"worker_id"`
+	CategoryID int64 `db:"category_id"`
+}
+
 type ServiceRequest struct {
-	ID               int64      `json:"id"`
-	ReferenceCode    string     `json:"referenceCode"`
-	CustomerID       int64      `json:"customerId"`
-	WorkerID         int64      `json:"workerId"`
-	CategoryID       int64      `json:"categoryId"`
-	Title            string     `json:"title"`
-	Description      string     `json:"description"`
-	LocationAddress  string     `json:"locationAddress"`
-	PreferredAt      *time.Time `json:"preferredAt,omitempty"`
-	BudgetETB        float64    `json:"budgetEtb"`
-	Status           string     `json:"status"`
-	WorkerDecisionAt *time.Time `json:"workerDecisionAt,omitempty"`
-	CreatedAt        time.Time  `json:"createdAt"`
-	UpdatedAt        time.Time  `json:"updatedAt"`
+	ID               int64      `db:"id"`
+	ReferenceCode    string     `db:"reference_code"`
+	CustomerID       int64      `db:"customer_id"`
+	WorkerID         int64      `db:"worker_id"`
+	CategoryID       int64      `db:"category_id"`
+	Title            string     `db:"title"`
+	Description      string     `db:"description"`
+	LocationAddress  string     `db:"location_address"`
+	PreferredAt      *time.Time `db:"preferred_at"`
+	BudgetETB        float64    `db:"budget_etb"`
+	Status           string     `db:"status"`
+	WorkerDecisionAt *time.Time `db:"worker_decision_at"`
+	CreatedAt        time.Time  `db:"created_at"`
+	UpdatedAt        time.Time  `db:"updated_at"`
 }
 
 type ServiceRequestView struct {
@@ -98,19 +118,6 @@ type ServiceRequestView struct {
 	WorkerName    string `json:"workerName"`
 	CustomerName  string `json:"customerName"`
 	CustomerPhone string `json:"customerPhone"`
-}
-
-type Payment struct {
-	ID          int64      `json:"id"`
-	RequestID   int64      `json:"requestId"`
-	AmountETB   float64    `json:"amountEtb"`
-	Currency    string     `json:"currency"`
-	Provider    string     `json:"provider"`
-	ProviderRef string     `json:"providerRef"`
-	Status      string     `json:"status"`
-	PaidAt      *time.Time `json:"paidAt,omitempty"`
-	CreatedAt   time.Time  `json:"createdAt"`
-	UpdatedAt   time.Time  `json:"updatedAt"`
 }
 
 type CustomerDashboard struct {
@@ -134,23 +141,91 @@ type AdminDashboard struct {
 	OpenRequests         int `json:"openRequests"`
 }
 
-type MessageConversation struct {
-	ID                 int64      `json:"id"`
-	RequestID          int64      `json:"requestId"`
-	OtherPartyUserID   int64      `json:"otherPartyUserId"`
-	OtherPartyName     string     `json:"otherPartyName"`
-	LastMessagePreview string     `json:"lastMessagePreview"`
-	LastMessageAt      *time.Time `json:"lastMessageAt,omitempty"`
-	UnreadCount        int        `json:"unreadCount"`
+// WorkerVerification (merged verification requests + documents)
+type WorkerVerification struct {
+	ID       int64 `db:"id"`
+	WorkerID int64 `db:"worker_id"`
+	// Verification request fields
+	Status          string     `db:"status"`
+	SubmittedAt     time.Time  `db:"submitted_at"`
+	ReviewedAt      *time.Time `db:"reviewed_at"`
+	ReviewedBy      *int64     `db:"reviewed_by"`
+	RejectionReason string     `db:"rejection_reason"`
+	CreatedAt       time.Time  `db:"created_at"`
+	UpdatedAt       time.Time  `db:"updated_at"`
+	// Document fields (nullable)
+	DocumentType  *string    `db:"document_type"`
+	FileURL       *string    `db:"file_url"`
+	FileName      *string    `db:"file_name"`
+	MimeType      *string    `db:"mime_type"`
+	FileSizeBytes *int64     `db:"file_size_bytes"`
+	DocStatus     *string    `db:"doc_status"`
+	ReviewNotes   *string    `db:"review_notes"`
+	UploadedAt    *time.Time `db:"uploaded_at"`
+}
+
+// WorkerPortfolio (merged projects + media)
+type WorkerPortfolio struct {
+	ID       int64 `db:"id"`
+	WorkerID int64 `db:"worker_id"`
+	// Project fields
+	Title         string     `db:"title"`
+	Description   string     `db:"description"`
+	CoverImageURL string     `db:"cover_image_url"`
+	City          string     `db:"city"`
+	CompletedAt   *time.Time `db:"completed_at"`
+	IsPublished   bool       `db:"is_published"`
+	CreatedAt     time.Time  `db:"created_at"`
+	UpdatedAt     time.Time  `db:"updated_at"`
+	// Media fields (nullable)
+	MediaURL     *string `db:"media_url"`
+	MediaType    *string `db:"media_type"`
+	DisplayOrder *int    `db:"display_order"`
+}
+
+// Review (merged with payments)
+type Review struct {
+	ID         int64     `db:"id"`
+	RequestID  int64     `db:"request_id"`
+	CustomerID int64     `db:"customer_id"`
+	WorkerID   int64     `db:"worker_id"`
+	Rating     int       `db:"rating"`
+	Comment    string    `db:"comment"`
+	CreatedAt  time.Time `db:"created_at"`
+	// Absorbed payment fields (nullable)
+	PaymentID        *int64     `db:"payment_id"`
+	AmountETB        *float64   `db:"amount_etb"`
+	Currency         *string    `db:"currency"`
+	Provider         *string    `db:"provider"`
+	ProviderRef      *string    `db:"provider_ref"`
+	PaymentStatus    *string    `db:"payment_status"`
+	PaidAt           *time.Time `db:"paid_at"`
+	PaymentCreatedAt *time.Time `db:"payment_created_at"`
+	PaymentUpdatedAt *time.Time `db:"payment_updated_at"`
+}
+
+// Conversation (merged conversations + read-tracking)
+type Conversation struct {
+	ID                        int64      `db:"id"`
+	RequestID                 int64      `db:"request_id"`
+	CustomerUserID            int64      `db:"customer_user_id"`
+	WorkerUserID              int64      `db:"worker_user_id"`
+	LastMessagePreview        string     `db:"last_message_preview"`
+	LastMessageAt             *time.Time `db:"last_message_at"`
+	CreatedAt                 time.Time  `db:"created_at"`
+	UpdatedAt                 time.Time  `db:"updated_at"`
+	CustomerLastReadMessageID *int64     `db:"customer_last_read_message_id"`
+	CustomerLastReadAt        *time.Time `db:"customer_last_read_at"`
+	WorkerLastReadMessageID   *int64     `db:"worker_last_read_message_id"`
+	WorkerLastReadAt          *time.Time `db:"worker_last_read_at"`
 }
 
 type Message struct {
-	ID             int64     `json:"id"`
-	ConversationID int64     `json:"conversationId"`
-	RequestID      int64     `json:"requestId"`
-	SenderUserID   int64     `json:"senderUserId"`
-	SenderName     string    `json:"senderName"`
-	Body           string    `json:"body"`
-	MessageType    string    `json:"messageType"`
-	CreatedAt      time.Time `json:"createdAt"`
+	ID             int64     `db:"id"`
+	ConversationID int64     `db:"conversation_id"`
+	RequestID      int64     `db:"request_id"`
+	SenderUserID   int64     `db:"sender_user_id"`
+	Body           string    `db:"body"`
+	MessageType    string    `db:"message_type"`
+	CreatedAt      time.Time `db:"created_at"`
 }

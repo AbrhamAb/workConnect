@@ -43,7 +43,7 @@ func (s *SharedModule) GetWorkerDetails(ctx context.Context, workerID int64) (db
 	return worker, err
 }
 
-func (s *SharedModule) ListMessageConversations(ctx context.Context, userID int64) ([]db.MessageConversation, error) {
+func (s *SharedModule) ListMessageConversations(ctx context.Context, userID int64) ([]db.Conversation, error) {
 	return s.store.ListMessageConversations(ctx, userID)
 }
 
