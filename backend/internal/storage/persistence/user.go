@@ -974,6 +974,108 @@ func (s *sqlStore) WorkerProfileByUserID(ctx context.Context, userID int64) (int
 	return workerID, verified, nil
 }
 
+func (s *sqlStore) InsertWorkerDocument(ctx context.Context, document db.WorkerDocument) (db.WorkerDocument, error) {
+	q := `
+		INSERT INTO worker_documents (
+			verification_id,
+			document_type,
+			file_url,
+			file_name,
+			mime_type,
+			file_size_bytes,
+			doc_status,
+			review_notes,
+			uploaded_at,
+			created_at,
+			updated_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+		RETURNING id, verification_id, document_type, file_url, file_name, mime_type,
+			file_size_bytes, doc_status, review_notes, uploaded_at, created_at, updated_at
+	`
+
+	var out db.WorkerDocument
+	err := s.db.QueryRowContext(ctx, q,
+		document.VerificationID,
+		document.DocumentType,
+		document.FileURL,
+		document.FileName,
+		document.MimeType,
+		document.FileSizeBytes,
+		document.DocStatus,
+		document.ReviewNotes,
+		document.UploadedAt,
+	).Scan(
+		&out.ID,
+		&out.VerificationID,
+		&out.DocumentType,
+		&out.FileURL,
+		&out.FileName,
+		&out.MimeType,
+		&out.FileSizeBytes,
+		&out.DocStatus,
+		&out.ReviewNotes,
+		&out.UploadedAt,
+		&out.CreatedAt,
+		&out.UpdatedAt,
+	)
+	if err != nil {
+		return db.WorkerDocument{}, err
+	}
+	return out, nil
+}
+
+func (s *sqlStore) GetWorkerDocuments(ctx context.Context, verificationID int64) ([]db.WorkerDocument, error) {
+	q := `
+		SELECT
+			id,
+			verification_id,
+			document_type,
+			file_url,
+			file_name,
+			mime_type,
+			file_size_bytes,
+			doc_status,
+			review_notes,
+			uploaded_at,
+			created_at,
+			updated_at
+		FROM worker_documents
+		WHERE verification_id = $1
+		ORDER BY document_type ASC
+	`
+
+	rows, err := s.db.QueryContext(ctx, q, verificationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	documents := make([]db.WorkerDocument, 0)
+	for rows.Next() {
+		var doc db.WorkerDocument
+		if err = rows.Scan(
+			&doc.ID,
+			&doc.VerificationID,
+			&doc.DocumentType,
+			&doc.FileURL,
+			&doc.FileName,
+			&doc.MimeType,
+			&doc.FileSizeBytes,
+			&doc.DocStatus,
+			&doc.ReviewNotes,
+			&doc.UploadedAt,
+			&doc.CreatedAt,
+			&doc.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		documents = append(documents, doc)
+	}
+
+	return documents, rows.Err()
+}
+
 func (s *sqlStore) RequestBelongsToCustomer(ctx context.Context, requestID, customerID int64) (bool, error) {
 	q := `SELECT EXISTS(SELECT 1 FROM service_requests WHERE id = $1 AND customer_id = $2)`
 	var exists bool

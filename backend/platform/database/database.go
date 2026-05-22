@@ -93,7 +93,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			PRIMARY KEY (worker_id, category_id)
 		);
 
-		-- merged worker_verification (requests + documents)
+		-- worker verification requests
 		CREATE TABLE IF NOT EXISTS worker_verification (
 			id BIGSERIAL PRIMARY KEY,
 			worker_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -103,18 +103,24 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			reviewed_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
 			rejection_reason TEXT NOT NULL DEFAULT '',
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
 
-			-- document fields (one row per document linked to a verification record)
-			document_type VARCHAR(50),
-			file_url TEXT,
-			file_name VARCHAR(255),
+		-- verification document metadata
+		CREATE TABLE IF NOT EXISTS worker_documents (
+			id BIGSERIAL PRIMARY KEY,
+			verification_id BIGINT NOT NULL REFERENCES worker_verification(id) ON DELETE CASCADE,
+			document_type VARCHAR(50) NOT NULL,
+			file_url TEXT NOT NULL,
+			file_name VARCHAR(255) NOT NULL,
 			mime_type VARCHAR(100),
 			file_size_bytes BIGINT,
-			doc_status VARCHAR(20),
-			review_notes TEXT,
-			uploaded_at TIMESTAMPTZ,
-			UNIQUE (worker_id, document_type)
+			doc_status VARCHAR(20) NOT NULL DEFAULT 'pending',
+			review_notes TEXT NOT NULL DEFAULT '',
+			uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			UNIQUE (verification_id, document_type)
 		);
 
 		-- merged worker_portfolio (projects + media)
@@ -352,6 +358,9 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		CREATE INDEX IF NOT EXISTS idx_service_requests_status ON service_requests(status);
 		CREATE INDEX IF NOT EXISTS idx_worker_verification_worker_id ON worker_verification(worker_id);
 		CREATE INDEX IF NOT EXISTS idx_worker_verification_status ON worker_verification(status);
+		CREATE INDEX IF NOT EXISTS idx_worker_documents_verification_id ON worker_documents(verification_id);
+		CREATE INDEX IF NOT EXISTS idx_worker_documents_document_type ON worker_documents(document_type);
+		CREATE INDEX IF NOT EXISTS idx_worker_documents_doc_status ON worker_documents(doc_status);
 		CREATE INDEX IF NOT EXISTS idx_worker_portfolio_worker_id ON worker_portfolio(worker_id);
 		CREATE INDEX IF NOT EXISTS idx_conversations_customer ON conversations(customer_user_id);
 		CREATE INDEX IF NOT EXISTS idx_conversations_worker ON conversations(worker_user_id);

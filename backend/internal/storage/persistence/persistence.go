@@ -34,6 +34,8 @@ type Store interface {
 	PendingWorkerVerifications(ctx context.Context) ([]db.WorkerCard, error)
 	VerifyWorker(ctx context.Context, workerID int64, verified bool) error
 	WorkerProfileByUserID(ctx context.Context, userID int64) (int64, bool, error)
+	InsertWorkerDocument(ctx context.Context, document db.WorkerDocument) (db.WorkerDocument, error)
+	GetWorkerDocuments(ctx context.Context, verificationID int64) ([]db.WorkerDocument, error)
 	RequestBelongsToCustomer(ctx context.Context, requestID, customerID int64) (bool, error)
 	DB() db.DBTX
 }

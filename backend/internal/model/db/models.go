@@ -146,11 +146,10 @@ type AdminDashboard struct {
 	OpenRequests         int `json:"openRequests"`
 }
 
-// WorkerVerification (merged verification requests + documents)
+// WorkerVerification holds a verification request for a worker.
 type WorkerVerification struct {
-	ID       int64 `db:"id"`
-	WorkerID int64 `db:"worker_id"`
-	// Verification request fields
+	ID              int64      `db:"id"`
+	WorkerID        int64      `db:"worker_id"`
 	Status          string     `db:"status"`
 	SubmittedAt     time.Time  `db:"submitted_at"`
 	ReviewedAt      *time.Time `db:"reviewed_at"`
@@ -158,15 +157,22 @@ type WorkerVerification struct {
 	RejectionReason string     `db:"rejection_reason"`
 	CreatedAt       time.Time  `db:"created_at"`
 	UpdatedAt       time.Time  `db:"updated_at"`
-	// Document fields (nullable)
-	DocumentType  *string    `db:"document_type"`
-	FileURL       *string    `db:"file_url"`
-	FileName      *string    `db:"file_name"`
-	MimeType      *string    `db:"mime_type"`
-	FileSizeBytes *int64     `db:"file_size_bytes"`
-	DocStatus     *string    `db:"doc_status"`
-	ReviewNotes   *string    `db:"review_notes"`
-	UploadedAt    *time.Time `db:"uploaded_at"`
+}
+
+// WorkerDocument holds a document uploaded for a worker verification request.
+type WorkerDocument struct {
+	ID             int64      `db:"id"`
+	VerificationID int64      `db:"verification_id"`
+	DocumentType   string     `db:"document_type"`
+	FileURL        *string    `db:"file_url"`
+	FileName       *string    `db:"file_name"`
+	MimeType       *string    `db:"mime_type"`
+	FileSizeBytes  *int64     `db:"file_size_bytes"`
+	DocStatus      *string    `db:"doc_status"`
+	ReviewNotes    *string    `db:"review_notes"`
+	UploadedAt     *time.Time `db:"uploaded_at"`
+	CreatedAt      time.Time  `db:"created_at"`
+	UpdatedAt      time.Time  `db:"updated_at"`
 }
 
 // WorkerPortfolio (merged projects + media)
