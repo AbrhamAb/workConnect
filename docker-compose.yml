@@ -1,13 +1,31 @@
 services:
+  db:
+    image: postgres:15
+    container_name: workconnect_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: workconnect
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    container_name: workconnect_backend
     restart: unless-stopped
     environment:
       PORT: ${PORT:-8080}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
-      # Set this to your Neon connection string in .env (sslmode=require).
       DATABASE_URL: ${DATABASE_URL}
     ports:
       - "8080:8080"
+    depends_on:
+      - db
+
+volumes:
+  pgdata:

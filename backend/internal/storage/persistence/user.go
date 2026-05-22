@@ -90,9 +90,15 @@ func (s *sqlStore) GetUserByID(ctx context.Context, userID int64) (db.User, erro
 
 func (s *sqlStore) CreateWorkerProfile(ctx context.Context, userID int64) error {
 	q := `
-		INSERT INTO worker_profiles (user_id, headline, bio, city, experience_years, hourly_rate_etb, availability_status)
-		VALUES ($1, 'Verified Professional', '', 'Addis Ababa', 0, 0, 'available')
-		ON CONFLICT (user_id) DO NOTHING
+		UPDATE users
+		SET headline = 'Verified Professional',
+		    bio = '',
+		    city = 'Addis Ababa',
+		    experience_years = 0,
+		    hourly_rate_etb = 0,
+		    availability_status = 'available',
+		    updated_at = NOW()
+		WHERE id = $1 AND role = 'worker'
 	`
 	_, err := s.db.ExecContext(ctx, q, userID)
 	return err
@@ -100,59 +106,113 @@ func (s *sqlStore) CreateWorkerProfile(ctx context.Context, userID int64) error 
 
 func (s *sqlStore) ListWorkers(ctx context.Context, category, city, qTerm, sort string) ([]db.WorkerCard, error) {
 	base := `
-		SELECT
-			wp.id,
-			wp.user_id,
-			u.full_name,
-			wp.headline,
-			wp.city,
-			wp.hourly_rate_etb,
-			wp.rating_average,
-			wp.rating_count,
-			wp.availability_status,
-			wp.is_verified,
-			wp.completed_jobs,
-			COALESCE(sc.name, '') AS category_name
-		FROM worker_profiles wp
-		INNER JOIN users u ON u.id = wp.user_id
-		LEFT JOIN worker_skills ws ON ws.worker_id = wp.id
+		FROM users u
+		LEFT JOIN worker_skills ws ON ws.worker_id = u.id
 		LEFT JOIN service_categories sc ON sc.id = ws.category_id
-		WHERE u.role = 'worker' AND u.is_active = TRUE AND wp.is_verified = TRUE
+		WHERE u.role = 'worker' AND u.is_active = TRUE AND u.is_verified = TRUE
 	`
 
 	args := make([]any, 0)
 	argPos := 1
 
 	if category != "" {
-		base += fmt.Sprintf(" AND EXISTS (SELECT 1 FROM worker_skills ws2 INNER JOIN service_categories sc2 ON sc2.id = ws2.category_id WHERE ws2.worker_id = wp.id AND sc2.slug = $%d)", argPos)
+		base += fmt.Sprintf(" AND EXISTS (SELECT 1 FROM worker_skills ws2 INNER JOIN service_categories sc2 ON sc2.id = ws2.category_id WHERE ws2.worker_id = u.id AND sc2.slug = $%d)", argPos)
 		args = append(args, strings.ToLower(strings.TrimSpace(category)))
 		argPos++
 	}
 
 	if city != "" {
-		base += fmt.Sprintf(" AND wp.city ILIKE $%d", argPos)
+		base += fmt.Sprintf(" AND u.city ILIKE $%d", argPos)
 		args = append(args, "%"+strings.TrimSpace(city)+"%")
 		argPos++
 	}
 
 	if qTerm != "" {
-		base += fmt.Sprintf(" AND (u.full_name ILIKE $%d OR wp.headline ILIKE $%d)", argPos, argPos)
+		base += fmt.Sprintf(" AND (u.full_name ILIKE $%d OR u.headline ILIKE $%d)", argPos, argPos)
 		args = append(args, "%"+strings.TrimSpace(qTerm)+"%")
 		argPos++
 	}
 
-	switch sort {
-	case "price_asc":
-		base += " ORDER BY wp.hourly_rate_etb ASC, wp.rating_average DESC"
-	case "price_desc":
-		base += " ORDER BY wp.hourly_rate_etb DESC, wp.rating_average DESC"
-	case "rating":
-		base += " ORDER BY wp.rating_average DESC, wp.rating_count DESC"
-	default:
-		base += " ORDER BY wp.completed_jobs DESC, wp.rating_average DESC"
+	selectClause := `
+		SELECT
+			u.id,
+			u.id,
+			u.full_name,
+			u.headline,
+			u.city,
+			u.hourly_rate_etb,
+			u.rating_average,
+			u.rating_count,
+			u.availability_status,
+			u.is_verified,
+			u.completed_jobs,
+			COALESCE(sc.name, '') AS category_name,
+			u.subcity,
+			u.response_rate,
+			u.reliability_score,
+			u.profile_strength_score
+	`
+
+	defaultSort := sort == ""
+	if defaultSort {
+		cityBoostPlaceholder := fmt.Sprintf("$%d", argPos)
+		args = append(args, strings.TrimSpace(city))
+		argPos++
+
+		budgetPlaceholder := fmt.Sprintf("$%d", argPos)
+		args = append(args, float64(0))
+		argPos++
+
+		selectClause += fmt.Sprintf(`
+			, (
+				-- Rating score: 0–5 scale normalized to 0–1, weight 35%%
+				(COALESCE(u.rating_average, 0) / 5.0 * 0.35)
+
+				-- Completed jobs: log scale to prevent huge numbers dominating, weight 20%%
+				+ (LOG(1 + COALESCE(u.completed_jobs, 0)) / LOG(1 + 100) * 0.20)
+
+				-- Response rate: already 0–100, normalize to 0–1, weight 20%%
+				+ (COALESCE(u.response_rate, 0) / 100.0 * 0.20)
+
+				-- Reliability score: already 0–100, normalize to 0–1, weight 15%%
+				+ (COALESCE(u.reliability_score, 0) / 100.0 * 0.15)
+
+				-- Profile strength: already 0–100, normalize to 0–1, weight 10%%
+				+ (COALESCE(u.profile_strength_score, 0) / 100.0 * 0.10)
+
+				-- Availability boost: +0.15 if worker is available right now
+				+ CASE WHEN u.availability_status = 'available' THEN 0.15 ELSE 0 END
+
+				-- City match boost: +0.10 if worker city matches the search city param
+				-- (use the city filter param value here; if no city filter, this is 0)
+				+ CASE WHEN u.city ILIKE %s THEN 0.10 ELSE 0 END
+
+				-- Subcity match boost: +0.05 additional if subcity also matches
+				+ CASE WHEN u.subcity ILIKE %s THEN 0.05 ELSE 0 END
+
+				-- Budget fit boost: +0.10 if worker hourly rate <= customer budget
+				-- (use the budget param; if no budget param provided, this is 0)
+				+ CASE WHEN %s > 0 
+					AND u.hourly_rate_etb <= %s 
+				       THEN 0.10 ELSE 0 END
+			) AS recommend_score
+		`, cityBoostPlaceholder, cityBoostPlaceholder, budgetPlaceholder, budgetPlaceholder)
+		base += " AND u.availability_status = 'available'"
 	}
 
-	rows, err := s.db.QueryContext(ctx, base, args...)
+	switch sort {
+	case "price_asc":
+		base += " ORDER BY u.hourly_rate_etb ASC, u.rating_average DESC"
+	case "price_desc":
+		base += " ORDER BY u.hourly_rate_etb DESC, u.rating_average DESC"
+	case "rating":
+		base += " ORDER BY u.rating_average DESC, u.rating_count DESC"
+	default:
+		base += " ORDER BY recommend_score DESC, u.rating_count DESC"
+	}
+
+	query := selectClause + base
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -161,21 +221,50 @@ func (s *sqlStore) ListWorkers(ctx context.Context, category, city, qTerm, sort 
 	workers := make([]db.WorkerCard, 0)
 	for rows.Next() {
 		var worker db.WorkerCard
-		if err = rows.Scan(
-			&worker.WorkerID,
-			&worker.UserID,
-			&worker.FullName,
-			&worker.Headline,
-			&worker.City,
-			&worker.HourlyRateETB,
-			&worker.RatingAverage,
-			&worker.RatingCount,
-			&worker.AvailabilityStatus,
-			&worker.IsVerified,
-			&worker.CompletedJobs,
-			&worker.PrimaryCategoryName,
-		); err != nil {
-			return nil, err
+		if defaultSort {
+			if err = rows.Scan(
+				&worker.WorkerID,
+				&worker.UserID,
+				&worker.FullName,
+				&worker.Headline,
+				&worker.City,
+				&worker.HourlyRateETB,
+				&worker.RatingAverage,
+				&worker.RatingCount,
+				&worker.AvailabilityStatus,
+				&worker.IsVerified,
+				&worker.CompletedJobs,
+				&worker.PrimaryCategoryName,
+				&worker.Subcity,
+				&worker.ResponseRate,
+				&worker.ReliabilityScore,
+				&worker.ProfileStrength,
+				&worker.RecommendScore,
+			); err != nil {
+				return nil, err
+			}
+		} else {
+			if err = rows.Scan(
+				&worker.WorkerID,
+				&worker.UserID,
+				&worker.FullName,
+				&worker.Headline,
+				&worker.City,
+				&worker.HourlyRateETB,
+				&worker.RatingAverage,
+				&worker.RatingCount,
+				&worker.AvailabilityStatus,
+				&worker.IsVerified,
+				&worker.CompletedJobs,
+				&worker.PrimaryCategoryName,
+				&worker.Subcity,
+				&worker.ResponseRate,
+				&worker.ReliabilityScore,
+				&worker.ProfileStrength,
+			); err != nil {
+				return nil, err
+			}
+			worker.RecommendScore = 0
 		}
 		workers = append(workers, worker)
 	}
@@ -186,26 +275,25 @@ func (s *sqlStore) ListWorkers(ctx context.Context, category, city, qTerm, sort 
 func (s *sqlStore) GetWorkerDetails(ctx context.Context, workerID int64) (db.WorkerDetails, error) {
 	q := `
 		SELECT
-			wp.id,
-			wp.user_id,
+			u.id,
+			u.id,
 			u.full_name,
-			wp.headline,
-			wp.city,
-			wp.hourly_rate_etb,
-			wp.rating_average,
-			wp.rating_count,
-			wp.availability_status,
-			wp.is_verified,
-			wp.completed_jobs,
+			u.headline,
+			u.city,
+			u.hourly_rate_etb,
+			u.rating_average,
+			u.rating_count,
+			u.availability_status,
+			u.is_verified,
+			u.completed_jobs,
 			COALESCE(sc.name, '') AS category_name,
-			wp.bio,
+			u.bio,
 			u.phone,
 			u.email
-		FROM worker_profiles wp
-		INNER JOIN users u ON u.id = wp.user_id
-		LEFT JOIN worker_skills ws ON ws.worker_id = wp.id
+		FROM users u
+		LEFT JOIN worker_skills ws ON ws.worker_id = u.id
 		LEFT JOIN service_categories sc ON sc.id = ws.category_id
-		WHERE wp.id = $1
+		WHERE u.id = $1
 		LIMIT 1
 	`
 
@@ -330,8 +418,7 @@ func (s *sqlStore) GetServiceRequestViewByID(ctx context.Context, requestID int6
 			cu.phone AS customer_phone
 		FROM service_requests sr
 		INNER JOIN service_categories sc ON sc.id = sr.category_id
-		INNER JOIN worker_profiles wp ON wp.id = sr.worker_id
-		INNER JOIN users wu ON wu.id = wp.user_id
+		INNER JOIN users wu ON wu.id = sr.worker_id
 		INNER JOIN users cu ON cu.id = sr.customer_id
 		WHERE sr.id = $1
 	`
@@ -383,8 +470,7 @@ func (s *sqlStore) ListCustomerRequests(ctx context.Context, customerID int64) (
 			cu.phone AS customer_phone
 		FROM service_requests sr
 		INNER JOIN service_categories sc ON sc.id = sr.category_id
-		INNER JOIN worker_profiles wp ON wp.id = sr.worker_id
-		INNER JOIN users wu ON wu.id = wp.user_id
+		INNER JOIN users wu ON wu.id = sr.worker_id
 		INNER JOIN users cu ON cu.id = sr.customer_id
 		WHERE sr.customer_id = $1
 		ORDER BY sr.created_at DESC
@@ -416,10 +502,9 @@ func (s *sqlStore) ListWorkerRequests(ctx context.Context, workerUserID int64) (
 			cu.phone AS customer_phone
 		FROM service_requests sr
 		INNER JOIN service_categories sc ON sc.id = sr.category_id
-		INNER JOIN worker_profiles wp ON wp.id = sr.worker_id
-		INNER JOIN users wu ON wu.id = wp.user_id
+		INNER JOIN users wu ON wu.id = sr.worker_id
 		INNER JOIN users cu ON cu.id = sr.customer_id
-		WHERE wp.user_id = $1
+		WHERE sr.worker_id = $1
 		ORDER BY CASE sr.status WHEN 'pending' THEN 1 WHEN 'accepted' THEN 2 ELSE 3 END, sr.created_at DESC
 	`
 
@@ -430,10 +515,8 @@ func (s *sqlStore) UpdateServiceRequestStatusByWorker(ctx context.Context, worke
 	q := `
 		UPDATE service_requests sr
 		SET status = $1, worker_decision_at = NOW(), updated_at = NOW()
-		FROM worker_profiles wp
 		WHERE sr.id = $2
-		  AND sr.worker_id = wp.id
-		  AND wp.user_id = $3
+		  AND sr.worker_id = $3
 		  AND sr.status = 'pending'
 		RETURNING sr.id
 	`
@@ -451,10 +534,8 @@ func (s *sqlStore) MarkServiceRequestCompletedByWorker(ctx context.Context, work
 	q := `
 		UPDATE service_requests sr
 		SET status = 'completed', updated_at = NOW()
-		FROM worker_profiles wp
 		WHERE sr.id = $1
-		  AND sr.worker_id = wp.id
-		  AND wp.user_id = $2
+		  AND sr.worker_id = $2
 		  AND sr.status = 'accepted'
 		RETURNING sr.id
 	`
@@ -470,9 +551,9 @@ func (s *sqlStore) MarkServiceRequestCompletedByWorker(ctx context.Context, work
 
 func (s *sqlStore) SetWorkerAvailability(ctx context.Context, workerUserID int64, availability string) error {
 	q := `
-		UPDATE worker_profiles
+		UPDATE users
 		SET availability_status = $1, updated_at = NOW()
-		WHERE user_id = $2
+		WHERE id = $2 AND role = 'worker'
 	`
 	res, err := s.db.ExecContext(ctx, q, availability, workerUserID)
 	if err != nil {
@@ -511,7 +592,7 @@ func (s *sqlStore) CreateReview(ctx context.Context, requestID, customerID int64
 
 func (s *sqlStore) RefreshWorkerRating(ctx context.Context, requestID int64) error {
 	q := `
-		UPDATE worker_profiles wp
+		UPDATE users u
 		SET
 			rating_average = COALESCE(stats.avg_rating, 0),
 			rating_count = COALESCE(stats.rating_count, 0),
@@ -521,8 +602,8 @@ func (s *sqlStore) RefreshWorkerRating(ctx context.Context, requestID int64) err
 			FROM reviews r
 			GROUP BY r.worker_id
 		) stats
-		WHERE wp.id = stats.worker_id
-		  AND wp.id = (SELECT worker_id FROM service_requests WHERE id = $1)
+		WHERE u.id = stats.worker_id
+		  AND u.id = (SELECT worker_id FROM service_requests WHERE id = $1)
 	`
 	_, err := s.db.ExecContext(ctx, q, requestID)
 	return err
@@ -530,9 +611,17 @@ func (s *sqlStore) RefreshWorkerRating(ctx context.Context, requestID int64) err
 
 func (s *sqlStore) InitiatePayment(ctx context.Context, requestID int64, amount float64, provider, providerRef string) (db.Review, error) {
 	q := `
-		INSERT INTO payments (request_id, amount_etb, provider, provider_ref, status)
-		VALUES ($1, $2, $3, $4, 'pending')
-		RETURNING id, request_id, amount_etb, currency, provider, provider_ref, status, paid_at, created_at, updated_at
+		INSERT INTO reviews (request_id, customer_id, worker_id, rating, comment, amount_etb, provider, provider_ref, payment_status)
+		SELECT sr.id, sr.customer_id, sr.worker_id, 0, '', $2, $3, $4, 'pending'
+		FROM service_requests sr
+		WHERE sr.id = $1
+		ON CONFLICT (request_id)
+		DO UPDATE SET amount_etb = EXCLUDED.amount_etb,
+		              provider = EXCLUDED.provider,
+		              provider_ref = EXCLUDED.provider_ref,
+		              payment_status = EXCLUDED.payment_status,
+		              updated_at = NOW()
+		RETURNING id, request_id, amount_etb, currency, provider, provider_ref, payment_status, paid_at, created_at, updated_at
 	`
 
 	var payment db.Review
@@ -553,9 +642,9 @@ func (s *sqlStore) InitiatePayment(ctx context.Context, requestID int64, amount 
 
 func (s *sqlStore) GetRequestMessagingParticipants(ctx context.Context, requestID int64) (int64, int64, string, error) {
 	q := `
-		SELECT sr.customer_id, wp.user_id, sr.status
+		SELECT sr.customer_id, wp.id, sr.status
 		FROM service_requests sr
-		INNER JOIN worker_profiles wp ON wp.id = sr.worker_id
+		INNER JOIN users wp ON wp.id = sr.worker_id
 		WHERE sr.id = $1
 	`
 
@@ -571,7 +660,7 @@ func (s *sqlStore) GetRequestMessagingParticipants(ctx context.Context, requestI
 
 func (s *sqlStore) UpsertMessageConversation(ctx context.Context, requestID, customerUserID, workerUserID int64) (int64, error) {
 	q := `
-		INSERT INTO message_conversations (request_id, customer_user_id, worker_user_id, updated_at)
+		INSERT INTO conversations (request_id, customer_user_id, worker_user_id, updated_at)
 		VALUES ($1, $2, $3, NOW())
 		ON CONFLICT (request_id)
 		DO UPDATE SET customer_user_id = EXCLUDED.customer_user_id,
@@ -586,9 +675,10 @@ func (s *sqlStore) UpsertMessageConversation(ctx context.Context, requestID, cus
 	}
 
 	qRead := `
-		INSERT INTO message_conversation_reads (conversation_id, user_id, last_read_at)
-		VALUES ($1, $2, NOW()), ($1, $3, NOW())
-		ON CONFLICT (conversation_id, user_id) DO NOTHING
+		UPDATE conversations
+		SET customer_last_read_at = NOW(),
+		    worker_last_read_at = NOW()
+		WHERE id = $1
 	`
 	if _, err := s.db.ExecContext(ctx, qRead, conversationID, customerUserID, workerUserID); err != nil {
 		return 0, err
@@ -609,13 +699,12 @@ func (s *sqlStore) ListMessageConversations(ctx context.Context, userID int64) (
 			COALESCE((
 				SELECT COUNT(*)::int
 				FROM messages m
-				LEFT JOIN message_conversation_reads r
-					ON r.conversation_id = c.id AND r.user_id = $1
 				WHERE m.conversation_id = c.id
 				  AND m.sender_user_id <> $1
-				  AND (r.last_read_message_id IS NULL OR m.id > r.last_read_message_id)
+				  AND ((c.customer_user_id = $1 AND (c.customer_last_read_message_id IS NULL OR m.id > c.customer_last_read_message_id))
+				       OR (c.worker_user_id = $1 AND (c.worker_last_read_message_id IS NULL OR m.id > c.worker_last_read_message_id)))
 			), 0) AS unread_count
-		FROM message_conversations c
+		FROM conversations c
 		INNER JOIN users u
 			ON u.id = CASE WHEN c.customer_user_id = $1 THEN c.worker_user_id ELSE c.customer_user_id END
 		WHERE c.customer_user_id = $1 OR c.worker_user_id = $1
@@ -733,11 +822,12 @@ func (s *sqlStore) MarkConversationRead(ctx context.Context, conversationID, use
 			ORDER BY id DESC
 			LIMIT 1
 		)
-		INSERT INTO message_conversation_reads (conversation_id, user_id, last_read_message_id, last_read_at)
-		VALUES ($1, $2, (SELECT id FROM latest), NOW())
-		ON CONFLICT (conversation_id, user_id)
-		DO UPDATE SET last_read_message_id = EXCLUDED.last_read_message_id,
-		              last_read_at = NOW()
+		UPDATE conversations
+		SET customer_last_read_message_id = CASE WHEN $2 = customer_user_id THEN (SELECT id FROM latest) ELSE customer_last_read_message_id END,
+		    customer_last_read_at = CASE WHEN $2 = customer_user_id THEN NOW() ELSE customer_last_read_at END,
+		    worker_last_read_message_id = CASE WHEN $2 = worker_user_id THEN (SELECT id FROM latest) ELSE worker_last_read_message_id END,
+		    worker_last_read_at = CASE WHEN $2 = worker_user_id THEN NOW() ELSE worker_last_read_at END
+		WHERE id = $1
 	`
 
 	_, err := s.db.ExecContext(ctx, q, conversationID, userID)
@@ -765,11 +855,10 @@ func (s *sqlStore) WorkerDashboard(ctx context.Context, workerUserID int64) (db.
 			COUNT(*) FILTER (WHERE sr.status = 'pending')::int AS incoming_pending,
 			COUNT(*) FILTER (WHERE sr.status = 'accepted')::int AS accepted_requests,
 			COUNT(*) FILTER (WHERE sr.status = 'completed')::int AS completed_jobs,
-			COALESCE(SUM(p.amount_etb) FILTER (WHERE p.status = 'paid'), 0)::numeric(12,2) AS earnings
+			COALESCE(SUM(p.amount_etb) FILTER (WHERE p.payment_status = 'paid'), 0)::numeric(12,2) AS earnings
 		FROM service_requests sr
-		INNER JOIN worker_profiles wp ON wp.id = sr.worker_id
-		LEFT JOIN payments p ON p.request_id = sr.id
-		WHERE wp.user_id = $1
+		LEFT JOIN reviews p ON p.request_id = sr.id
+		WHERE sr.worker_id = $1
 	`
 
 	var out db.WorkerDashboard
@@ -787,7 +876,7 @@ func (s *sqlStore) AdminDashboard(ctx context.Context) (db.AdminDashboard, error
 		SELECT
 			(SELECT COUNT(*)::int FROM users),
 			(SELECT COUNT(*)::int FROM users WHERE role = 'worker'),
-			(SELECT COUNT(*)::int FROM worker_profiles WHERE is_verified = FALSE),
+			(SELECT COUNT(*)::int FROM users WHERE is_verified = FALSE AND role = 'worker'),
 			(SELECT COUNT(*)::int FROM service_requests),
 			(SELECT COUNT(*)::int FROM service_requests WHERE status IN ('pending', 'accepted'))
 	`
@@ -806,22 +895,21 @@ func (s *sqlStore) AdminDashboard(ctx context.Context) (db.AdminDashboard, error
 func (s *sqlStore) PendingWorkerVerifications(ctx context.Context) ([]db.WorkerCard, error) {
 	q := `
 		SELECT
-			wp.id,
-			wp.user_id,
+			u.id,
+			u.id,
 			u.full_name,
-			wp.headline,
-			wp.city,
-			wp.hourly_rate_etb,
-			wp.rating_average,
-			wp.rating_count,
-			wp.availability_status,
-			wp.is_verified,
-			wp.completed_jobs,
+			u.headline,
+			u.city,
+			u.hourly_rate_etb,
+			u.rating_average,
+			u.rating_count,
+			u.availability_status,
+			u.is_verified,
+			u.completed_jobs,
 			'' AS category_name
-		FROM worker_profiles wp
-		INNER JOIN users u ON u.id = wp.user_id
-		WHERE wp.is_verified = FALSE
-		ORDER BY wp.created_at ASC
+		FROM users u
+		WHERE u.is_verified = FALSE AND u.role = 'worker'
+		ORDER BY u.created_at ASC
 	`
 
 	rows, err := s.db.QueryContext(ctx, q)
@@ -857,9 +945,9 @@ func (s *sqlStore) PendingWorkerVerifications(ctx context.Context) ([]db.WorkerC
 
 func (s *sqlStore) VerifyWorker(ctx context.Context, workerID int64, verified bool) error {
 	q := `
-		UPDATE worker_profiles
+		UPDATE users
 		SET is_verified = $1, updated_at = NOW()
-		WHERE id = $2
+		WHERE id = $2 AND role = 'worker'
 	`
 	res, err := s.db.ExecContext(ctx, q, verified, workerID)
 	if err != nil {
@@ -876,7 +964,7 @@ func (s *sqlStore) VerifyWorker(ctx context.Context, workerID int64, verified bo
 }
 
 func (s *sqlStore) WorkerProfileByUserID(ctx context.Context, userID int64) (int64, bool, error) {
-	q := `SELECT id, is_verified FROM worker_profiles WHERE user_id = $1`
+	q := `SELECT id, is_verified FROM users WHERE id = $1 AND role = 'worker'`
 	var workerID int64
 	var verified bool
 	err := s.db.QueryRowContext(ctx, q, userID).Scan(&workerID, &verified)

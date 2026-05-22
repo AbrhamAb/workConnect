@@ -8,14 +8,13 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func RegisterCustomerRoutes(r chi.Router, handler rest.CustomerHandler) {
-	authMiddleware := middleware.Auth(handler.Module().WorkConnect)
-	r.Use(authMiddleware)
+func RegisterCustomerRoutes(r chi.Router, h rest.Handler) {
+	r.Use(middleware.Auth(h.Module().WorkConnect))
 	r.Use(middleware.RequireRoles(db.RoleCustomer))
 
-	r.Post("/requests", handler.CreateCustomerRequest)
-	r.Get("/requests", handler.ListCustomerRequests)
-	r.Post("/requests/{requestID}/review", handler.SubmitCustomerReview)
-	r.Post("/requests/{requestID}/payments/initiate", handler.InitiateCustomerPayment)
-	r.Get("/dashboard", handler.CustomerDashboard)
+	r.Get("/dashboard", h.CustomerDashboard)
+	r.Post("/requests", h.CreateCustomerRequest)
+	r.Get("/requests", h.ListCustomerRequests)
+	r.Post("/requests/{requestID}/review", h.SubmitCustomerReview)
+	r.Post("/requests/{requestID}/payments/initiate", h.InitiateCustomerPayment)
 }

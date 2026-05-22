@@ -2,18 +2,17 @@ package admin
 
 import (
 	"task-management-backend/internal/handler/middleware"
-	"task-management-backend/internal/handler/rest"
+	handler "task-management-backend/internal/handler/rest"
 	"task-management-backend/internal/model/db"
 
 	"github.com/go-chi/chi/v5"
 )
 
-func RegisterAdminRoutes(r chi.Router, handler rest.AdminHandler) {
-	authMiddleware := middleware.Auth(handler.Module().WorkConnect)
-	r.Use(authMiddleware)
+func RegisterAdminRoutes(r chi.Router, h handler.Handler) {
+	r.Use(middleware.Auth(h.Module().WorkConnect))
 	r.Use(middleware.RequireRoles(db.RoleAdmin))
 
-	r.Get("/dashboard", handler.AdminDashboard)
-	r.Get("/workers/pending-verification", handler.PendingWorkers)
-	r.Patch("/workers/{workerID}/verify", handler.VerifyWorker)
+	r.Get("/dashboard", h.AdminDashboard)
+	r.Get("/workers/pending-verification", h.PendingWorkers)
+	r.Patch("/workers/{workerID}/verify", h.VerifyWorker)
 }

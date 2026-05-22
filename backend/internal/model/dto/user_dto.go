@@ -21,10 +21,11 @@ type UserLoginResponse struct {
 }
 
 type WorkerSearchQuery struct {
-	Category string `json:"category"`
-	City     string `json:"city"`
-	Q        string `json:"q"`
-	Sort     string `json:"sort"`
+	Category string  `json:"category"`
+	City     string  `json:"city"`
+	Q        string  `json:"q"`
+	Sort     string  `json:"sort"`
+	Budget   float64 `json:"budget_etb" form:"budget_etb"`
 }
 
 type CreateServiceRequest struct {

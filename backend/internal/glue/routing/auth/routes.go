@@ -10,7 +10,7 @@ import (
 func RegisterAuthRoutes(r chi.Router, handler rest.AuthHandler) {
 	authMiddleware := middleware.Auth(handler.Module().WorkConnect)
 
+	r.With(authMiddleware).Get("/me", handler.Me)
 	r.Post("/register", handler.Register)
 	r.Post("/login", handler.Login)
-	r.With(authMiddleware).Get("/me", handler.Me)
 }

@@ -66,12 +66,17 @@ type WorkerCard struct {
 	FullName            string  `json:"fullName"`
 	Headline            string  `json:"headline"`
 	City                string  `json:"city"`
+	Subcity             string  `json:"subcity"`
 	HourlyRateETB       float64 `json:"hourlyRateEtb"`
 	RatingAverage       float64 `json:"ratingAverage"`
 	RatingCount         int     `json:"ratingCount"`
 	AvailabilityStatus  string  `json:"availabilityStatus"`
 	IsVerified          bool    `json:"isVerified"`
 	CompletedJobs       int     `json:"completedJobs"`
+	ResponseRate        float64 `json:"responseRate"`
+	ReliabilityScore    float64 `json:"reliabilityScore"`
+	ProfileStrength     int     `json:"profileStrength"`
+	RecommendScore      float64 `json:"recommendScore"`
 	PrimaryCategoryName string  `json:"primaryCategoryName"`
 }
 

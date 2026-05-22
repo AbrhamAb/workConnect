@@ -15,8 +15,20 @@ import (
 func RegisterWorkConnectRoutes(r chi.Router, handler rest.Handler) {
 	publicroutes.RegisterPublicRoutes(r, handler)
 	authroutes.RegisterAuthRoutes(r, handler)
-	customerroutes.RegisterCustomerRoutes(r, handler)
-	workerroutes.RegisterWorkerRoutes(r, handler)
-	messageroutes.RegisterMessageRoutes(r, handler)
-	adminroutes.RegisterAdminRoutes(r, handler)
+
+	r.Group(func(r chi.Router) {
+		customerroutes.RegisterCustomerRoutes(r, handler)
+	})
+
+	r.Group(func(r chi.Router) {
+		workerroutes.RegisterWorkerRoutes(r, handler)
+	})
+
+	r.Group(func(r chi.Router) {
+		messageroutes.RegisterMessageRoutes(r, handler)
+	})
+
+	r.Group(func(r chi.Router) {
+		adminroutes.RegisterAdminRoutes(r, handler)
+	})
 }
