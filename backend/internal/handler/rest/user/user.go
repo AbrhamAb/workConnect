@@ -156,6 +156,39 @@ func (h *Handler) ListCustomerRequests(w nethttp.ResponseWriter, r *nethttp.Requ
 	response.SendSuccessResponse(w, r, nethttp.StatusOK, "requests fetched", map[string]any{"requests": items})
 }
 
+func (h *Handler) GetCustomerRequest(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	requestID, err := parseIDParam(r, "requestID")
+	if err != nil {
+		response.SendErrorResponse(w, r, stderrs.New("invalid request id"))
+		return
+	}
+
+	request, err := h.Module().WorkConnect.GetServiceRequestByID(r.Context(), requestID)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	if request.CustomerID != principal.UserID {
+		response.SendErrorResponse(w, r, apperrors.ErrForbidden)
+		return
+	}
+
+	worker, err := h.Module().WorkConnect.GetWorkerDetails(r.Context(), request.WorkerID)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	response.SendSuccessResponse(w, r, nethttp.StatusOK, "request fetched", map[string]any{"request": request, "worker": worker})
+}
+
 func (h *Handler) SubmitCustomerReview(w nethttp.ResponseWriter, r *nethttp.Request) {
 	principal, err := h.requirePrincipal(r.Context())
 	if err != nil {
@@ -243,6 +276,45 @@ func (h *Handler) ListWorkerRequests(w nethttp.ResponseWriter, r *nethttp.Reques
 	response.SendSuccessResponse(w, r, nethttp.StatusOK, "requests fetched", map[string]any{"requests": items})
 }
 
+func (h *Handler) GetWorkerRequest(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	requestID, err := parseIDParam(r, "requestID")
+	if err != nil {
+		response.SendErrorResponse(w, r, stderrs.New("invalid request id"))
+		return
+	}
+
+	request, err := h.Module().WorkConnect.GetServiceRequestByID(r.Context(), requestID)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	workerProfileID, isWorker, err := h.Module().WorkConnect.GetWorkerProfileInfo(r.Context(), principal.UserID)
+	if err != nil || !isWorker {
+		response.SendErrorResponse(w, r, apperrors.ErrForbidden)
+		return
+	}
+
+	if workerProfileID != request.WorkerID {
+		response.SendErrorResponse(w, r, apperrors.ErrForbidden)
+		return
+	}
+
+	customer, err := h.Module().WorkConnect.GetUserByID(r.Context(), request.CustomerID)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	response.SendSuccessResponse(w, r, nethttp.StatusOK, "request fetched", map[string]any{"request": request, "customer": customer})
+}
+
 func (h *Handler) WorkerDecision(w nethttp.ResponseWriter, r *nethttp.Request) {
 	principal, err := h.requirePrincipal(r.Context())
 	if err != nil {
@@ -271,6 +343,28 @@ func (h *Handler) WorkerDecision(w nethttp.ResponseWriter, r *nethttp.Request) {
 	response.SendSuccessResponse(w, r, nethttp.StatusOK, "request updated", map[string]any{"request": item})
 }
 
+func (h *Handler) StartWorkerRequest(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	requestID, err := parseIDParam(r, "requestID")
+	if err != nil {
+		response.SendErrorResponse(w, r, stderrs.New("invalid request id"))
+		return
+	}
+
+	item, err := h.Module().WorkConnect.StartWorkerRequest(r.Context(), principal.UserID, requestID)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	response.SendSuccessResponse(w, r, nethttp.StatusOK, "request updated", map[string]any{"request": item})
+}
+
 func (h *Handler) CompleteWorkerRequest(w nethttp.ResponseWriter, r *nethttp.Request) {
 	principal, err := h.requirePrincipal(r.Context())
 	if err != nil {
@@ -291,6 +385,50 @@ func (h *Handler) CompleteWorkerRequest(w nethttp.ResponseWriter, r *nethttp.Req
 	}
 
 	response.SendSuccessResponse(w, r, nethttp.StatusOK, "request completed", map[string]any{"request": item})
+}
+
+func (h *Handler) ConfirmCustomerRequest(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	requestID, err := parseIDParam(r, "requestID")
+	if err != nil {
+		response.SendErrorResponse(w, r, stderrs.New("invalid request id"))
+		return
+	}
+
+	item, err := h.Module().WorkConnect.ConfirmCustomerRequest(r.Context(), principal.UserID, requestID)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	response.SendSuccessResponse(w, r, nethttp.StatusOK, "request updated", map[string]any{"request": item})
+}
+
+func (h *Handler) CancelCustomerRequest(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	requestID, err := parseIDParam(r, "requestID")
+	if err != nil {
+		response.SendErrorResponse(w, r, stderrs.New("invalid request id"))
+		return
+	}
+
+	item, err := h.Module().WorkConnect.CancelCustomerRequest(r.Context(), principal.UserID, requestID)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	response.SendSuccessResponse(w, r, nethttp.StatusOK, "request updated", map[string]any{"request": item})
 }
 
 func (h *Handler) WorkerAvailability(w nethttp.ResponseWriter, r *nethttp.Request) {

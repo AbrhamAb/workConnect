@@ -1,10 +1,12 @@
 package initializer
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"task-management-backend/internal/glue/routing"
 	"task-management-backend/internal/handler/rest"
@@ -15,12 +17,58 @@ import (
 	"go.uber.org/zap"
 )
 
+func loadEnvFile(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	defer func() { _ = file.Close() }()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		line = strings.TrimPrefix(line, "export ")
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		if key == "" {
+			continue
+		}
+
+		if _, exists := os.LookupEnv(key); exists {
+			continue
+		}
+
+		value = strings.Trim(value, `"'`)
+		if err = os.Setenv(key, value); err != nil {
+			return err
+		}
+	}
+
+	return scanner.Err()
+}
+
 func Run() error {
 	appLogger, err := logger.New()
 	if err != nil {
 		return fmt.Errorf("init logger: %w", err)
 	}
 	defer func() { _ = appLogger.Sync() }()
+
+	if err = loadEnvFile(".env"); err != nil {
+		return fmt.Errorf("load env file: %w", err)
+	}
 
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {

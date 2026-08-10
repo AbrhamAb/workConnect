@@ -267,6 +267,20 @@ func (s *sqlStore) GetWorkerDetails(ctx context.Context, workerID int64) (db.Wor
 	return details, rows.Err()
 }
 
+func (s *sqlStore) GetWorkerPrimaryCategoryID(ctx context.Context, workerID int64) (int64, error) {
+	q := `
+		SELECT category_id
+		FROM worker_skills
+		WHERE worker_id = $1
+		ORDER BY category_id
+		LIMIT 1
+	`
+
+	var categoryID int64
+	err := s.db.QueryRowContext(ctx, q, workerID).Scan(&categoryID)
+	return categoryID, err
+}
+
 func (s *sqlStore) CreateServiceRequest(ctx context.Context, request db.ServiceRequest) (db.ServiceRequest, error) {
 	q := `
 		INSERT INTO service_requests (
@@ -451,6 +465,65 @@ func (s *sqlStore) UpdateServiceRequestStatusByWorker(ctx context.Context, worke
 
 	var updatedID int64
 	err := s.db.QueryRowContext(ctx, q, status, requestID, workerUserID).Scan(&updatedID)
+	if err != nil {
+		return db.ServiceRequestView{}, err
+	}
+
+	return s.GetServiceRequestViewByID(ctx, updatedID)
+}
+
+func (s *sqlStore) StartServiceRequestByWorker(ctx context.Context, workerUserID, requestID int64) (db.ServiceRequestView, error) {
+	q := `
+		UPDATE service_requests sr
+		SET status = 'in_progress', updated_at = NOW()
+		FROM worker_profiles wp
+		WHERE sr.id = $1
+		  AND sr.worker_id = wp.id
+		  AND wp.user_id = $2
+		  AND sr.status = 'accepted'
+		RETURNING sr.id
+	`
+
+	var updatedID int64
+	err := s.db.QueryRowContext(ctx, q, requestID, workerUserID).Scan(&updatedID)
+	if err != nil {
+		return db.ServiceRequestView{}, err
+	}
+
+	return s.GetServiceRequestViewByID(ctx, updatedID)
+}
+
+func (s *sqlStore) ConfirmServiceRequestByCustomer(ctx context.Context, customerID, requestID int64) (db.ServiceRequestView, error) {
+	q := `
+		UPDATE service_requests
+		SET status = 'confirmed', updated_at = NOW()
+		WHERE id = $1
+		  AND customer_id = $2
+		  AND status = 'completed'
+		RETURNING id
+	`
+
+	var updatedID int64
+	err := s.db.QueryRowContext(ctx, q, requestID, customerID).Scan(&updatedID)
+	if err != nil {
+		return db.ServiceRequestView{}, err
+	}
+
+	return s.GetServiceRequestViewByID(ctx, updatedID)
+}
+
+func (s *sqlStore) CancelServiceRequestByCustomer(ctx context.Context, customerID, requestID int64) (db.ServiceRequestView, error) {
+	q := `
+		UPDATE service_requests
+		SET status = 'cancelled', updated_at = NOW()
+		WHERE id = $1
+		  AND customer_id = $2
+		  AND status IN ('pending', 'accepted')
+		RETURNING id
+	`
+
+	var updatedID int64
+	err := s.db.QueryRowContext(ctx, q, requestID, customerID).Scan(&updatedID)
 	if err != nil {
 		return db.ServiceRequestView{}, err
 	}

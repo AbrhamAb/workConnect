@@ -14,9 +14,13 @@ type Store interface {
 	GetWorkerDetails(ctx context.Context, workerID int64) (db.WorkerDetails, error)
 	CreateServiceRequest(ctx context.Context, request db.ServiceRequest) (db.ServiceRequest, error)
 	GetServiceRequestViewByID(ctx context.Context, requestID int64) (db.ServiceRequestView, error)
+	GetWorkerPrimaryCategoryID(ctx context.Context, workerID int64) (int64, error)
 	ListCustomerRequests(ctx context.Context, customerID int64) ([]db.ServiceRequestView, error)
 	ListWorkerRequests(ctx context.Context, workerUserID int64) ([]db.ServiceRequestView, error)
 	UpdateServiceRequestStatusByWorker(ctx context.Context, workerUserID, requestID int64, status string) (db.ServiceRequestView, error)
+	StartServiceRequestByWorker(ctx context.Context, workerUserID, requestID int64) (db.ServiceRequestView, error)
+	ConfirmServiceRequestByCustomer(ctx context.Context, customerID, requestID int64) (db.ServiceRequestView, error)
+	CancelServiceRequestByCustomer(ctx context.Context, customerID, requestID int64) (db.ServiceRequestView, error)
 	MarkServiceRequestCompletedByWorker(ctx context.Context, workerUserID, requestID int64) (db.ServiceRequestView, error)
 	SetWorkerAvailability(ctx context.Context, workerUserID int64, availability string) error
 	CreateReview(ctx context.Context, requestID, customerID int64, rating int, comment string) error

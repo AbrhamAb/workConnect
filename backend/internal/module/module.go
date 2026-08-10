@@ -6,8 +6,8 @@ import (
 	"os"
 	"task-management-backend/internal/model/db"
 	"task-management-backend/internal/model/dto"
-	userpersistence "task-management-backend/internal/storage/persistence/user"
 	user "task-management-backend/internal/module/user"
+	userpersistence "task-management-backend/internal/storage/persistence/user"
 )
 
 type Module struct {
@@ -18,14 +18,19 @@ type WorkConnectService interface {
 	Register(ctx context.Context, req dto.RegisterRequest) (string, db.User, error)
 	Login(ctx context.Context, req dto.LoginRequest) (*dto.UserLoginResponse, error)
 	GetProfile(ctx context.Context, userID int64) (db.User, error)
+	GetUserByID(ctx context.Context, userID int64) (db.User, error)
 	GetWorkerProfileInfo(ctx context.Context, userID int64) (int64, bool, error)
 	ListWorkers(ctx context.Context, query dto.WorkerSearchQuery) ([]db.WorkerCard, error)
 	GetWorkerDetails(ctx context.Context, workerID int64) (db.WorkerDetails, error)
+	GetServiceRequestByID(ctx context.Context, requestID int64) (db.ServiceRequestView, error)
 	CreateServiceRequest(ctx context.Context, customerID int64, req dto.CreateServiceRequest) (db.ServiceRequestView, error)
 	ListCustomerRequests(ctx context.Context, customerID int64) ([]db.ServiceRequestView, error)
 	ListWorkerRequests(ctx context.Context, workerUserID int64) ([]db.ServiceRequestView, error)
 	WorkerDecision(ctx context.Context, workerUserID, requestID int64, req dto.WorkerDecisionRequest) (db.ServiceRequestView, error)
+	StartWorkerRequest(ctx context.Context, workerUserID, requestID int64) (db.ServiceRequestView, error)
 	CompleteWorkerRequest(ctx context.Context, workerUserID, requestID int64) (db.ServiceRequestView, error)
+	ConfirmCustomerRequest(ctx context.Context, customerID, requestID int64) (db.ServiceRequestView, error)
+	CancelCustomerRequest(ctx context.Context, customerID, requestID int64) (db.ServiceRequestView, error)
 	UpdateWorkerAvailability(ctx context.Context, workerUserID int64, req dto.UpdateAvailabilityRequest) error
 	SubmitReview(ctx context.Context, customerID, requestID int64, req dto.SubmitReviewRequest) error
 	InitiatePayment(ctx context.Context, customerID, requestID int64, req dto.InitiatePaymentRequest) (db.Payment, error)

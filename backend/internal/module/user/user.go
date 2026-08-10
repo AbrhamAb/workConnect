@@ -114,6 +114,15 @@ func (m *WorkConnectModule) GetProfile(ctx context.Context, userID int64) (db.Us
 	return user, nil
 }
 
+func (m *WorkConnectModule) GetUserByID(ctx context.Context, userID int64) (db.User, error) {
+	user, err := m.store.GetUserByID(ctx, userID)
+	if err != nil {
+		return db.User{}, err
+	}
+	user.PasswordHash = ""
+	return user, nil
+}
+
 func (m *WorkConnectModule) GetWorkerProfileInfo(ctx context.Context, userID int64) (int64, bool, error) {
 	return m.store.WorkerProfileByUserID(ctx, userID)
 }
@@ -133,6 +142,14 @@ func (m *WorkConnectModule) GetWorkerDetails(ctx context.Context, workerID int64
 func (m *WorkConnectModule) CreateServiceRequest(ctx context.Context, customerID int64, req dto.CreateServiceRequest) (db.ServiceRequestView, error) {
 	if err := req.Validate(); err != nil {
 		return db.ServiceRequestView{}, err
+	}
+
+	if req.CategoryID == 0 {
+		categoryID, err := m.store.GetWorkerPrimaryCategoryID(ctx, req.WorkerID)
+		if err != nil {
+			return db.ServiceRequestView{}, err
+		}
+		req.CategoryID = categoryID
 	}
 
 	sr := db.ServiceRequest{
@@ -159,6 +176,10 @@ func (m *WorkConnectModule) CreateServiceRequest(ctx context.Context, customerID
 	}
 
 	return m.store.GetServiceRequestViewByID(ctx, created.ID)
+}
+
+func (m *WorkConnectModule) GetServiceRequestByID(ctx context.Context, requestID int64) (db.ServiceRequestView, error) {
+	return m.store.GetServiceRequestViewByID(ctx, requestID)
 }
 
 func (m *WorkConnectModule) ListCustomerRequests(ctx context.Context, customerID int64) ([]db.ServiceRequestView, error) {
@@ -192,8 +213,32 @@ func (m *WorkConnectModule) WorkerDecision(ctx context.Context, workerUserID, re
 	return item, err
 }
 
+func (m *WorkConnectModule) StartWorkerRequest(ctx context.Context, workerUserID, requestID int64) (db.ServiceRequestView, error) {
+	item, err := m.store.StartServiceRequestByWorker(ctx, workerUserID, requestID)
+	if userpersistence.IsNotFound(err) {
+		return db.ServiceRequestView{}, apperrors.ErrInvalidState
+	}
+	return item, err
+}
+
 func (m *WorkConnectModule) CompleteWorkerRequest(ctx context.Context, workerUserID, requestID int64) (db.ServiceRequestView, error) {
 	item, err := m.store.MarkServiceRequestCompletedByWorker(ctx, workerUserID, requestID)
+	if userpersistence.IsNotFound(err) {
+		return db.ServiceRequestView{}, apperrors.ErrInvalidState
+	}
+	return item, err
+}
+
+func (m *WorkConnectModule) ConfirmCustomerRequest(ctx context.Context, customerID, requestID int64) (db.ServiceRequestView, error) {
+	item, err := m.store.ConfirmServiceRequestByCustomer(ctx, customerID, requestID)
+	if userpersistence.IsNotFound(err) {
+		return db.ServiceRequestView{}, apperrors.ErrInvalidState
+	}
+	return item, err
+}
+
+func (m *WorkConnectModule) CancelCustomerRequest(ctx context.Context, customerID, requestID int64) (db.ServiceRequestView, error) {
+	item, err := m.store.CancelServiceRequestByCustomer(ctx, customerID, requestID)
 	if userpersistence.IsNotFound(err) {
 		return db.ServiceRequestView{}, apperrors.ErrInvalidState
 	}

@@ -66,7 +66,7 @@ func (r LoginRequest) Validate() error {
 func (r CreateServiceRequest) Validate() error {
 	return validation.ValidateStruct(&r,
 		validation.Field(&r.WorkerID, validation.Required, validation.Min(int64(1))),
-		validation.Field(&r.CategoryID, validation.Required, validation.Min(int64(1))),
+		validation.Field(&r.CategoryID, validation.Min(int64(0))),
 		validation.Field(&r.Title, validation.Required, validation.Length(5, 120)),
 		validation.Field(&r.Description, validation.Required, validation.Length(10, 2000)),
 		validation.Field(&r.LocationAddress, validation.Required, validation.Length(4, 255)),
