@@ -6,12 +6,14 @@ export function Avatar({ src, alt = "Avatar", size = "md", className }) {
     sm: "w-8 h-8",
     md: "w-10 h-10",
     lg: "w-14 h-14",
+    xl: "w-16 h-16",
+    "2xl": "w-24 h-24",
   };
 
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-full bg-gray-200 flex-shrink-0",
+        "relative shrink-0 overflow-hidden rounded-full bg-gray-200",
         sizes[size],
         className,
       )}

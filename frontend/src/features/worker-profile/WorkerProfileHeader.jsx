@@ -1,17 +1,34 @@
+import { useRef } from "react";
+
 import { Avatar } from "@/components/avatar";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { Card } from "@/components/card";
 
-export function WorkerProfileHeader({ worker }) {
+export function WorkerProfileHeader({ worker, onPhotoSelected }) {
+  const fileInputRef = useRef(null);
   const isAvailable = worker?.availability === "Available";
+
+  function handleButtonClick() {
+    fileInputRef.current?.click();
+  }
+
+  function handleFileChange(event) {
+    const file = event.target?.files?.[0];
+    if (!file || typeof onPhotoSelected !== "function") {
+      return;
+    }
+
+    onPhotoSelected(file);
+    event.target.value = "";
+  }
 
   return (
     <Card className="p-8">
       <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-6">
           <Avatar
-            src={worker?.profileImage}
+            src={worker?.profileImage || worker?.avatar}
             alt={worker?.fullName || "Worker"}
             size="2xl"
           />
@@ -93,7 +110,19 @@ export function WorkerProfileHeader({ worker }) {
           </div>
         </div>
 
-        <Button variant="secondary">Change Photo</Button>
+        <div className="flex items-center gap-3">
+          <Button variant="secondary" onClick={handleButtonClick}>
+            Change Photo
+          </Button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+        </div>
       </div>
     </Card>
   );

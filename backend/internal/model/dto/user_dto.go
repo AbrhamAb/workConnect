@@ -48,6 +48,18 @@ type UpdateProfileImageRequest struct {
 	ProfileImage string `json:"profileImage"`
 }
 
+type UpdateProfileRequest struct {
+	FullName     string   `json:"fullName"`
+	Email        string   `json:"email"`
+	Phone        string   `json:"phone"`
+	ProfileImage string   `json:"profileImage"`
+	City         string   `json:"city"`
+	PrimarySkill string   `json:"primarySkill"`
+	Experience   *int     `json:"experience"`
+	Bio          string   `json:"bio"`
+	Skills       []string `json:"skills"`
+}
+
 type SubmitReviewRequest struct {
 	Rating  int    `json:"rating"`
 	Comment string `json:"comment"`

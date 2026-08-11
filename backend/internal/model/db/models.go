@@ -59,6 +59,7 @@ type WorkerCard struct {
 	WorkerID            int64   `json:"workerId"`
 	UserID              int64   `json:"userId"`
 	FullName            string  `json:"fullName"`
+	ProfileImage        string  `json:"profileImage"`
 	Headline            string  `json:"headline"`
 	City                string  `json:"city"`
 	HourlyRateETB       float64 `json:"hourlyRateEtb"`

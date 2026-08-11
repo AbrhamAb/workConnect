@@ -15,6 +15,8 @@ export default function RouteGuard({
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isLoading = useAuthStore((state) => state.isLoading);
+  const currentRole = String(user?.role || "").toLowerCase();
+  const normalizedAllowedRoles = allowedRoles.map((role) => String(role || "").toLowerCase());
 
   useEffect(() => {
     if (isLoading) return;
@@ -22,7 +24,7 @@ export default function RouteGuard({
     // Guest pages (login, register, forgot password)
     if (requireGuest) {
       if (isAuthenticated) {
-        if (user.role === "customer") {
+        if (currentRole === "customer") {
           router.replace("/customer/dashboard");
         } else {
           router.replace("/worker/dashboard");
@@ -39,14 +41,14 @@ export default function RouteGuard({
     }
 
     // Role protected pages
-    if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
-      if (user.role === "customer") {
+    if (normalizedAllowedRoles.length > 0 && !normalizedAllowedRoles.includes(currentRole)) {
+      if (currentRole === "customer") {
         router.replace("/customer/dashboard");
       } else {
         router.replace("/worker/dashboard");
       }
     }
-  }, [isLoading, isAuthenticated, user, requireGuest, allowedRoles, router]);
+  }, [isLoading, isAuthenticated, currentRole, requireGuest, allowedRoles, router]);
 
   if (isLoading) {
     return (
@@ -66,9 +68,9 @@ export default function RouteGuard({
 
   if (
     !requireGuest &&
-    allowedRoles.length > 0 &&
+    normalizedAllowedRoles.length > 0 &&
     user &&
-    !allowedRoles.includes(user.role)
+    !normalizedAllowedRoles.includes(currentRole)
   ) {
     return null;
   }

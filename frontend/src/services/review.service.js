@@ -1,6 +1,6 @@
 import { delay } from "@/lib/delay";
 
-import { apiPost } from "./api.service";
+import { apiGet, apiPost } from "./api.service";
 import { getCurrentUser } from "./auth.service";
 
 import {
@@ -10,6 +10,17 @@ import {
   updateOne,
   deleteOne,
 } from "./storage.service";
+
+function toNumericWorkerId(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const raw = String(value);
+  const stripped = raw.replace(/^worker-/, "");
+  const numeric = Number(stripped);
+  return Number.isNaN(numeric) ? null : numeric;
+}
 
 /**
  * Builds a review object with customer information.
@@ -100,6 +111,22 @@ export async function getCustomerReviews(customerId) {
  */
 export async function getWorkerRatingSummary(workerId) {
   await delay();
+
+  const numericWorkerId = toNumericWorkerId(workerId);
+
+  if (numericWorkerId) {
+    try {
+      const response = await apiGet(`/workers/${numericWorkerId}`);
+      const worker = response?.worker || response;
+
+      return {
+        rating: worker.ratingAverage ?? worker.rating ?? 0,
+        totalReviews: worker.ratingCount ?? worker.totalReviews ?? 0,
+      };
+    } catch {
+      // Fallback to local review data when backend is unavailable.
+    }
+  }
 
   const reviews = findMany("reviews", (review) => review.workerId === workerId);
 

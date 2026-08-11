@@ -5,6 +5,23 @@ import { apiPost } from "./api.service";
 const CURRENT_USER_KEY = "workconnect-current-user";
 const PLACEHOLDER_AVATAR = "/api/placeholder/150/150";
 
+function normalizeStoredUser(user) {
+  if (!user) {
+    return null;
+  }
+
+  const role = String(user.role || user.Role || "").trim().toLowerCase();
+
+  return {
+    ...user,
+    role,
+    profileImage:
+      user.profileImage || user.profile_image || user.avatar || PLACEHOLDER_AVATAR,
+    workerProfileId:
+      user.workerProfileId ?? user.worker_profile_id ?? user.workerProfileId ?? null,
+  };
+}
+
 export function setCurrentUser(user) {
   if (typeof window === "undefined") {
     return;
@@ -22,11 +39,7 @@ export function setCurrentUser(user) {
   }
 
   // ensure a profileImage exists for UI consistency
-  const normalized = {
-    ...user,
-    profileImage:
-      user.profileImage || user.profile_image || user.avatar || PLACEHOLDER_AVATAR,
-  };
+  const normalized = normalizeStoredUser(user);
 
   localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(normalized));
   // notify any listeners (AuthProvider) so global auth store can sync
@@ -44,7 +57,15 @@ export function getCurrentUser() {
 
   const user = localStorage.getItem(CURRENT_USER_KEY);
 
-  return user ? JSON.parse(user) : null;
+  if (!user) {
+    return null;
+  }
+
+  try {
+    return normalizeStoredUser(JSON.parse(user));
+  } catch {
+    return null;
+  }
 }
 
 export function isAuthenticated() {
@@ -70,7 +91,7 @@ function normalizeSession(data) {
     phone: source.phone || source.phone_number || "",
 
     // role
-    role: source.role || "",
+    role: String(source.role || source.Role || "").trim().toLowerCase(),
 
     // profile image: accept camelCase or snake_case or avatar
     profileImage:

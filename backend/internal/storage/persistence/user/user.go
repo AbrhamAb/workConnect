@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"task-management-backend/internal/model/db"
+	"task-management-backend/internal/model/dto"
 	persistence "task-management-backend/internal/storage/persistence"
 	"time"
 )
@@ -102,6 +103,116 @@ func (s *sqlStore) GetUserByID(ctx context.Context, userID int64) (db.User, erro
 	return user, err
 }
 
+func (s *sqlStore) UpdateUserProfile(ctx context.Context, userID int64, req dto.UpdateProfileRequest) (db.User, error) {
+	q := `
+		UPDATE users
+		SET %s updated_at = NOW()
+		WHERE id = $%d
+		RETURNING id, full_name, email, phone, role, profile_image, is_active, password_hash, created_at, updated_at
+	`
+
+	columns := make([]string, 0)
+	args := make([]any, 0)
+
+	if strings.TrimSpace(req.FullName) != "" {
+		columns = append(columns, fmt.Sprintf("full_name = $%d", len(args)+1))
+		args = append(args, req.FullName)
+	}
+
+	if strings.TrimSpace(req.Email) != "" {
+		columns = append(columns, fmt.Sprintf("email = $%d", len(args)+1))
+		args = append(args, strings.ToLower(strings.TrimSpace(req.Email)))
+	}
+
+	if strings.TrimSpace(req.Phone) != "" {
+		columns = append(columns, fmt.Sprintf("phone = $%d", len(args)+1))
+		args = append(args, req.Phone)
+	}
+
+	if strings.TrimSpace(req.ProfileImage) != "" {
+		columns = append(columns, fmt.Sprintf("profile_image = $%d", len(args)+1))
+		args = append(args, req.ProfileImage)
+	}
+
+	if len(columns) == 0 {
+		user, err := s.GetUserByID(ctx, userID)
+		if err != nil {
+			return db.User{}, err
+		}
+		if err := s.UpdateWorkerProfileByUserID(ctx, userID, req); err != nil {
+			return db.User{}, err
+		}
+		return user, nil
+	}
+
+	query := fmt.Sprintf(q, strings.Join(columns, ", "), len(args)+1)
+	args = append(args, userID)
+
+	var user db.User
+	err := s.db.QueryRowContext(ctx, query, args...).Scan(
+		&user.ID,
+		&user.FullName,
+		&user.Email,
+		&user.Phone,
+		&user.Role,
+		&user.ProfileImage,
+		&user.IsActive,
+		&user.PasswordHash,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	if err != nil {
+		return db.User{}, err
+	}
+
+	if err := s.UpdateWorkerProfileByUserID(ctx, userID, req); err != nil {
+		return db.User{}, err
+	}
+
+	return user, nil
+}
+
+func (s *sqlStore) UpdateWorkerProfileByUserID(ctx context.Context, userID int64, req dto.UpdateProfileRequest) error {
+	q := `
+		UPDATE worker_profiles
+		SET %s updated_at = NOW()
+		WHERE user_id = $%d
+	`
+
+	columns := make([]string, 0)
+	args := make([]any, 0)
+
+	if strings.TrimSpace(req.City) != "" {
+		columns = append(columns, fmt.Sprintf("city = $%d", len(args)+1))
+		args = append(args, req.City)
+	}
+
+	if strings.TrimSpace(req.Bio) != "" {
+		columns = append(columns, fmt.Sprintf("bio = $%d", len(args)+1))
+		args = append(args, req.Bio)
+	}
+
+	if req.Experience != nil {
+		columns = append(columns, fmt.Sprintf("experience_years = $%d", len(args)+1))
+		args = append(args, *req.Experience)
+	}
+
+	if strings.TrimSpace(req.PrimarySkill) != "" {
+		columns = append(columns, fmt.Sprintf("headline = $%d", len(args)+1))
+		args = append(args, req.PrimarySkill)
+	}
+
+	if len(columns) == 0 {
+		return nil
+	}
+
+	query := fmt.Sprintf(q, strings.Join(columns, ", "), len(args)+1)
+	args = append(args, userID)
+
+	_, err := s.db.ExecContext(ctx, query, args...)
+	return err
+}
+
 func (s *sqlStore) UpdateUserProfileImage(ctx context.Context, userID int64, profileImage string) (db.User, error) {
 	q := `
 		UPDATE users
@@ -142,6 +253,7 @@ func (s *sqlStore) ListWorkers(ctx context.Context, category, city, qTerm, sort 
 			wp.id,
 			wp.user_id,
 			u.full_name,
+			u.profile_image,
 			wp.headline,
 			wp.city,
 			wp.hourly_rate_etb,

@@ -92,13 +92,13 @@ func (h *Handler) UpdateCurrentUser(w nethttp.ResponseWriter, r *nethttp.Request
 		return
 	}
 
-	var req dto.UpdateProfileImageRequest
+	var req dto.UpdateProfileRequest
 	if err := decodeAndValidate(r, &req); err != nil {
 		response.SendErrorResponse(w, r, err)
 		return
 	}
 
-	user, err := h.Module().WorkConnect.UpdateUserProfileImage(r.Context(), principal.UserID, req.ProfileImage)
+	user, err := h.Module().WorkConnect.UpdateUserProfile(r.Context(), principal.UserID, req)
 	if err != nil {
 		response.SendErrorResponse(w, r, err)
 		return

@@ -114,6 +114,15 @@ func (m *WorkConnectModule) GetProfile(ctx context.Context, userID int64) (db.Us
 	return user, nil
 }
 
+func (m *WorkConnectModule) UpdateUserProfile(ctx context.Context, userID int64, req dto.UpdateProfileRequest) (db.User, error) {
+	user, err := m.store.UpdateUserProfile(ctx, userID, req)
+	if err != nil {
+		return db.User{}, err
+	}
+	user.PasswordHash = ""
+	return user, nil
+}
+
 func (m *WorkConnectModule) UpdateUserProfileImage(ctx context.Context, userID int64, profileImage string) (db.User, error) {
 	user, err := m.store.UpdateUserProfileImage(ctx, userID, profileImage)
 	if err != nil {

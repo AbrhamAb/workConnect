@@ -31,7 +31,11 @@ export default function ProfileHeader({ customer, onPhotoSelected }) {
         {/* Left */}
 
         <div className="flex items-center gap-5">
-          <Avatar src={customer.avatar} alt={customer.name} size="lg" />
+          <Avatar
+            src={customer.avatar || customer.profileImage || "/api/placeholder/150/150"}
+            alt={customer.name}
+            size="lg"
+          />
 
           <div>
             <h2 className="text-3xl font-bold text-[#1A362D]">

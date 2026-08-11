@@ -10,7 +10,10 @@ import { SecurityCard } from "@/features/worker-profile/SecurityCard";
 import { DangerZoneCard } from "@/features/worker-profile/DangerZoneCard";
 import { Card } from "@/components/card";
 
-import { getCurrentWorkerProfileData } from "@/services/worker.service";
+import {
+  getCurrentWorkerProfileData,
+  updateWorkerProfileImage,
+} from "@/services/worker.service";
 
 export default function WorkerProfilePage() {
   const [worker, setWorker] = useState(null);
@@ -55,6 +58,44 @@ export default function WorkerProfilePage() {
       mounted = false;
     };
   }, []);
+
+  function handleWorkerUpdated(updatedWorker) {
+    setWorker((current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+        ...updatedWorker,
+        profileImage: updatedWorker.profileImage || current.profileImage,
+        avatar: updatedWorker.profileImage || current.avatar,
+      };
+    });
+  }
+
+  async function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error("Unable to read selected file."));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handlePhotoSelected(file) {
+    try {
+      const profileImage = await readFileAsDataUrl(file);
+      const updatedWorker = await updateWorkerProfileImage(profileImage);
+
+      if (updatedWorker) {
+        handleWorkerUpdated(updatedWorker);
+      }
+    } catch (error) {
+      console.error("Failed to upload worker profile photo:", error);
+    }
+  }
 
   const profileData = useMemo(() => {
     if (!worker) {
@@ -103,7 +144,10 @@ export default function WorkerProfilePage() {
         </Card>
       ) : profileData ? (
         <>
-          <WorkerProfileHeader worker={profileData} />
+          <WorkerProfileHeader
+            worker={profileData}
+            onPhotoSelected={handlePhotoSelected}
+          />
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <AccountInformationCard
