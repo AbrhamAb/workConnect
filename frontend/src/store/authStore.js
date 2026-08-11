@@ -17,6 +17,14 @@ export const useAuthStore = create((set) => ({
     });
   },
 
+  setUser: (user) => {
+    set({
+      user,
+      isAuthenticated: !!user,
+      isLoading: false,
+    });
+  },
+
   login: async (email, password) => {
     set({ isLoading: true });
 

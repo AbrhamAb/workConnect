@@ -44,6 +44,10 @@ type UpdateAvailabilityRequest struct {
 	AvailabilityStatus string `json:"availabilityStatus"`
 }
 
+type UpdateProfileImageRequest struct {
+	ProfileImage string `json:"profileImage"`
+}
+
 type SubmitReviewRequest struct {
 	Rating  int    `json:"rating"`
 	Comment string `json:"comment"`

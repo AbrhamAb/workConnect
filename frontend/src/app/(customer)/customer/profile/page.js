@@ -9,7 +9,10 @@ import AccountStats from "@/features/customer-profile/AccountStats";
 import FavoritesCard from "@/features/customer-profile/FavoritesCard";
 import DangerZone from "@/features/customer-profile/DangerZone";
 import { Card } from "@/components/card";
-import { getCustomerProfileData } from "@/services/customer.service";
+import {
+  getCustomerProfileData,
+  updateCustomerProfileImage,
+} from "@/services/customer.service";
 
 export default function CustomerProfilePage() {
   const [profileData, setProfileData] = useState(null);
@@ -67,6 +70,29 @@ export default function CustomerProfilePage() {
     });
   }
 
+  async function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error("Unable to read selected file."));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handlePhotoSelected(file) {
+    try {
+      const profileImage = await readFileAsDataUrl(file);
+      const updatedCustomer = await updateCustomerProfileImage(profileImage);
+
+      if (updatedCustomer) {
+        handleCustomerUpdated(updatedCustomer);
+      }
+    } catch (error) {
+      console.error("Failed to upload profile photo:", error);
+    }
+  }
+
   return (
     <div className="space-y-8">
       <div>
@@ -90,7 +116,7 @@ export default function CustomerProfilePage() {
         </Card>
       ) : customer ? (
         <>
-          <ProfileHeader customer={customer} />
+          <ProfileHeader customer={customer} onPhotoSelected={handlePhotoSelected} />
 
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
             <div className="space-y-6 lg:col-span-8">

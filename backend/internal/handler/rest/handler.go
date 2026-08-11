@@ -13,6 +13,7 @@ type Handler interface {
 	Register(w http.ResponseWriter, r *http.Request)
 	Login(w http.ResponseWriter, r *http.Request)
 	Me(w http.ResponseWriter, r *http.Request)
+	UpdateCurrentUser(w http.ResponseWriter, r *http.Request)
 	ListWorkers(w http.ResponseWriter, r *http.Request)
 	GetWorkerProfile(w http.ResponseWriter, r *http.Request)
 	CreateCustomerRequest(w http.ResponseWriter, r *http.Request)

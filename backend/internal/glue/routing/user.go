@@ -51,6 +51,14 @@ func RegisterWorkConnectRoutes(r chi.Router, handler rest.Handler) {
 					authMiddleware,
 				},
 			},
+			{
+				Method:  http.MethodPatch,
+				Path:    "/me",
+				Handler: handler.UpdateCurrentUser,
+				Middlewares: []func(http.Handler) http.Handler{
+					authMiddleware,
+				},
+			},
 		})
 	})
 

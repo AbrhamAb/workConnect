@@ -44,6 +44,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			email VARCHAR(255) UNIQUE NOT NULL,
 			phone VARCHAR(20) NOT NULL,
 			role VARCHAR(20) NOT NULL CHECK (role IN ('customer', 'worker', 'admin')),
+			profile_image TEXT NOT NULL DEFAULT '',
 			is_active BOOLEAN NOT NULL DEFAULT TRUE,
 				email_verified BOOLEAN NOT NULL DEFAULT FALSE,
 				phone_verified BOOLEAN NOT NULL DEFAULT FALSE,
@@ -345,6 +346,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			CREATE INDEX IF NOT EXISTS idx_messages_request_id ON messages(request_id);
 
 			ALTER TABLE users
+				ADD COLUMN IF NOT EXISTS profile_image TEXT NOT NULL DEFAULT '',
 				ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE,
 				ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN NOT NULL DEFAULT FALSE;
 

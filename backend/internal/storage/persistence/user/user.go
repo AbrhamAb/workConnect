@@ -27,7 +27,7 @@ func (s *sqlStore) CreateUser(ctx context.Context, fullName, email, phone, role,
 	q := `
 		INSERT INTO users (full_name, email, phone, role, password_hash)
 		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, full_name, email, phone, role, is_active, password_hash, created_at, updated_at
+		RETURNING id, full_name, email, phone, role, profile_image, is_active, password_hash, created_at, updated_at
 	`
 
 	var user db.User
@@ -37,6 +37,7 @@ func (s *sqlStore) CreateUser(ctx context.Context, fullName, email, phone, role,
 		&user.Email,
 		&user.Phone,
 		&user.Role,
+		&user.ProfileImage,
 		&user.IsActive,
 		&user.PasswordHash,
 		&user.CreatedAt,
@@ -47,7 +48,7 @@ func (s *sqlStore) CreateUser(ctx context.Context, fullName, email, phone, role,
 
 func (s *sqlStore) GetUserByEmail(ctx context.Context, email string) (db.User, error) {
 	query := `
-		SELECT id, full_name, email, phone, role, is_active, password_hash, created_at, updated_at
+		SELECT id, full_name, email, phone, role, profile_image, is_active, password_hash, created_at, updated_at
 		FROM users
 		WHERE email = $1
 	`
@@ -60,6 +61,7 @@ func (s *sqlStore) GetUserByEmail(ctx context.Context, email string) (db.User, e
 		&user.Email,
 		&user.Phone,
 		&user.Role,
+		&user.ProfileImage,
 		&user.IsActive,
 		&user.PasswordHash,
 		&user.CreatedAt,
@@ -79,7 +81,7 @@ func (s *sqlStore) GetUserByEmail(ctx context.Context, email string) (db.User, e
 
 func (s *sqlStore) GetUserByID(ctx context.Context, userID int64) (db.User, error) {
 	q := `
-		SELECT id, full_name, email, phone, role, is_active, password_hash, created_at, updated_at
+		SELECT id, full_name, email, phone, role, profile_image, is_active, password_hash, created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`
@@ -91,6 +93,31 @@ func (s *sqlStore) GetUserByID(ctx context.Context, userID int64) (db.User, erro
 		&user.Email,
 		&user.Phone,
 		&user.Role,
+		&user.ProfileImage,
+		&user.IsActive,
+		&user.PasswordHash,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	return user, err
+}
+
+func (s *sqlStore) UpdateUserProfileImage(ctx context.Context, userID int64, profileImage string) (db.User, error) {
+	q := `
+		UPDATE users
+		SET profile_image = $1, updated_at = NOW()
+		WHERE id = $2
+		RETURNING id, full_name, email, phone, role, profile_image, is_active, password_hash, created_at, updated_at
+	`
+
+	var user db.User
+	err := s.db.QueryRowContext(ctx, q, profileImage, userID).Scan(
+		&user.ID,
+		&user.FullName,
+		&user.Email,
+		&user.Phone,
+		&user.Role,
+		&user.ProfileImage,
 		&user.IsActive,
 		&user.PasswordHash,
 		&user.CreatedAt,

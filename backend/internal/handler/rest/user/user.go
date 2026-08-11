@@ -85,6 +85,28 @@ func (h *Handler) Me(w nethttp.ResponseWriter, r *nethttp.Request) {
 	response.SendSuccessResponse(w, r, nethttp.StatusOK, "profile fetched", h.profilePayload(r.Context(), user))
 }
 
+func (h *Handler) UpdateCurrentUser(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	var req dto.UpdateProfileImageRequest
+	if err := decodeAndValidate(r, &req); err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	user, err := h.Module().WorkConnect.UpdateUserProfileImage(r.Context(), principal.UserID, req.ProfileImage)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	response.SendSuccessResponse(w, r, nethttp.StatusOK, "profile updated", h.profilePayload(r.Context(), user))
+}
+
 func (h *Handler) ListWorkers(w nethttp.ResponseWriter, r *nethttp.Request) {
 	query := dto.WorkerSearchQuery{
 		Category: r.URL.Query().Get("category"),

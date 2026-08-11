@@ -18,6 +18,7 @@ type WorkConnectService interface {
 	Register(ctx context.Context, req dto.RegisterRequest) (string, db.User, error)
 	Login(ctx context.Context, req dto.LoginRequest) (*dto.UserLoginResponse, error)
 	GetProfile(ctx context.Context, userID int64) (db.User, error)
+	UpdateUserProfileImage(ctx context.Context, userID int64, profileImage string) (db.User, error)
 	GetUserByID(ctx context.Context, userID int64) (db.User, error)
 	GetWorkerProfileInfo(ctx context.Context, userID int64) (int64, bool, error)
 	ListWorkers(ctx context.Context, query dto.WorkerSearchQuery) ([]db.WorkerCard, error)

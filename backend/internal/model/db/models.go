@@ -29,6 +29,7 @@ type User struct {
 	Email        string    `json:"email"`
 	Phone        string    `json:"phone"`
 	Role         string    `json:"role"`
+	ProfileImage string    `json:"profileImage"`
 	IsActive     bool      `json:"isActive"`
 	PasswordHash string    `json:"-"`
 	CreatedAt    time.Time `json:"createdAt"`

@@ -86,6 +86,12 @@ func (r UpdateAvailabilityRequest) Validate() error {
 	)
 }
 
+func (r UpdateProfileImageRequest) Validate() error {
+	return validation.ValidateStruct(&r,
+		validation.Field(&r.ProfileImage, validation.Required.Error("profile image is required"), validation.Length(1, 1000000).Error("profile image is required")),
+	)
+}
+
 func (r SubmitReviewRequest) Validate() error {
 	return validation.ValidateStruct(&r,
 		validation.Field(&r.Rating, validation.Required, validation.Min(1), validation.Max(5)),

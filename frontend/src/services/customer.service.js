@@ -1,8 +1,9 @@
 import { delay } from "@/lib/delay";
 
-import { apiGet } from "./api.service";
+import { apiGet, apiPatch } from "./api.service";
 import { getCurrentUser, setCurrentUser } from "./auth.service";
 import { getWorkerById } from "./worker.service";
+import { useAuthStore } from "@/store/authStore";
 
 const PLACEHOLDER_AVATAR = "/api/placeholder/150/150";
 
@@ -178,6 +179,38 @@ export async function updateCustomer(updates) {
   };
 
   setCurrentUser(updatedCustomer);
+  useAuthStore.setState({
+    user: updatedCustomer,
+    isAuthenticated: true,
+    isLoading: false,
+  });
+
+  return mergeCurrentSession(mapCustomer(updatedCustomer));
+}
+
+export async function updateCustomerProfileImage(profileImage) {
+  await delay();
+
+  const currentUser = getCurrentUser();
+
+  if (!currentUser || currentUser.role !== "customer") {
+    return null;
+  }
+
+  const response = await apiPatch("/auth/me", { profileImage });
+  const user = response?.user || {};
+  const updatedCustomer = {
+    ...currentUser,
+    ...user,
+    profileImage: user.profileImage || currentUser.profileImage,
+  };
+
+  setCurrentUser(updatedCustomer);
+  useAuthStore.setState({
+    user: updatedCustomer,
+    isAuthenticated: true,
+    isLoading: false,
+  });
 
   return mergeCurrentSession(mapCustomer(updatedCustomer));
 }

@@ -11,6 +11,11 @@ export default function AuthProvider({ children }) {
   useEffect(() => {
     initializeDatabase();
     initialize();
+
+    const handler = () => initialize();
+    window.addEventListener("workconnect:authChanged", handler);
+
+    return () => window.removeEventListener("workconnect:authChanged", handler);
   }, [initialize]);
 
   return children;
