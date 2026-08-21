@@ -1,6 +1,29 @@
 import { delay } from "@/lib/delay";
 
-import { findMany, insertOne, updateOne, deleteOne } from "./storage.service";
+import { apiDelete, apiGet, apiPatch, apiPost } from "./api.service";
+
+function toNumericWorkerId(workerId) {
+  const numericId = Number(String(workerId).replace(/^worker-/, ""));
+  return Number.isInteger(numericId) && numericId > 0 ? numericId : null;
+}
+
+function toNumericPortfolioId(itemId) {
+  const numericId = Number(String(itemId).replace(/^portfolio-/, ""));
+  return Number.isInteger(numericId) && numericId > 0 ? numericId : null;
+}
+
+function normalizePortfolioItem(item) {
+  if (!item) {
+    return null;
+  }
+
+  return {
+    ...item,
+    image: item.image || item.coverImageUrl || "",
+    title: item.title || "Project",
+    description: item.description || "",
+  };
+}
 
 /**
  * Returns every portfolio item for a worker.
@@ -8,7 +31,13 @@ import { findMany, insertOne, updateOne, deleteOne } from "./storage.service";
 export async function getPortfolioByWorker(workerId) {
   await delay();
 
-  return findMany("portfolio", (item) => item.workerId === workerId);
+  const numericWorkerId = toNumericWorkerId(workerId);
+  if (!numericWorkerId) {
+    return [];
+  }
+
+  const response = await apiGet(`/workers/${numericWorkerId}/portfolio`, { auth: false });
+  return (response?.portfolio || []).map(normalizePortfolioItem).filter(Boolean);
 }
 
 /**
@@ -17,16 +46,13 @@ export async function getPortfolioByWorker(workerId) {
 export async function createPortfolioItem(data) {
   await delay();
 
-  const portfolioItem = {
-    id: crypto.randomUUID(),
-    workerId: data.workerId,
+  const response = await apiPost("/worker/portfolio", {
     image: data.image,
     title: data.title || "Project",
     description: data.description || "",
-    createdAt: new Date().toISOString(),
-  };
+  });
 
-  return insertOne("portfolio", portfolioItem);
+  return normalizePortfolioItem(response?.portfolio || response);
 }
 
 /**
@@ -35,7 +61,18 @@ export async function createPortfolioItem(data) {
 export async function updatePortfolioItem(itemId, updates) {
   await delay();
 
-  return updateOne("portfolio", (item) => item.id === itemId, updates);
+  const numericItemId = toNumericPortfolioId(itemId);
+  if (!numericItemId) {
+    throw new Error("Invalid portfolio item id.");
+  }
+
+  const response = await apiPatch(`/worker/portfolio/${numericItemId}`, {
+    image: updates.image,
+    title: updates.title || "Project",
+    description: updates.description || "",
+  });
+
+  return normalizePortfolioItem(response?.portfolio || response);
 }
 
 /**
@@ -44,5 +81,11 @@ export async function updatePortfolioItem(itemId, updates) {
 export async function deletePortfolioItem(itemId) {
   await delay();
 
-  return deleteOne("portfolio", (item) => item.id === itemId);
+  const numericItemId = toNumericPortfolioId(itemId);
+  if (!numericItemId) {
+    throw new Error("Invalid portfolio item id.");
+  }
+
+  await apiDelete(`/worker/portfolio/${numericItemId}`);
+  return true;
 }

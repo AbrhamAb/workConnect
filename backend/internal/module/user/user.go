@@ -97,12 +97,23 @@ func (m *WorkConnectModule) Login(ctx context.Context, req dto.LoginRequest) (*d
 		return nil, apperrors.ErrInvalidCredentials
 	}
 
-	return &dto.UserLoginResponse{
+	response := &dto.UserLoginResponse{
 		ID:       user.ID,
 		FullName: user.FullName,
 		Role:     user.Role,
 		Token:    token,
-	}, nil
+	}
+	if user.Role == db.RoleWorker {
+		workerProfileID, isWorker, profileErr := m.store.WorkerProfileByUserID(ctx, user.ID)
+		if profileErr != nil {
+			return nil, profileErr
+		}
+		if isWorker {
+			response.WorkerProfileID = &workerProfileID
+		}
+	}
+
+	return response, nil
 }
 
 func (m *WorkConnectModule) GetProfile(ctx context.Context, userID int64) (db.User, error) {
@@ -146,6 +157,123 @@ func (m *WorkConnectModule) GetWorkerDetails(ctx context.Context, workerID int64
 		return db.WorkerDetails{}, apperrors.ErrNotFound
 	}
 	return worker, err
+}
+
+func (m *WorkConnectModule) GetWorkerReviews(ctx context.Context, workerID int64) (db.WorkerReviewResponse, error) {
+	reviews, err := m.store.GetWorkerReviews(ctx, workerID)
+	if userpersistence.IsNotFound(err) {
+		return db.WorkerReviewResponse{}, apperrors.ErrNotFound
+	}
+	return reviews, err
+}
+
+func (m *WorkConnectModule) ListPortfolioItems(ctx context.Context, workerID int64) ([]db.PortfolioItem, error) {
+	return m.store.ListPortfolioItems(ctx, workerID)
+}
+
+func (m *WorkConnectModule) CreatePortfolioItem(ctx context.Context, workerID int64, req dto.PortfolioItemRequest) (db.PortfolioItem, error) {
+	if err := req.Validate(); err != nil {
+		return db.PortfolioItem{}, err
+	}
+	return m.store.CreatePortfolioItem(ctx, workerID, db.PortfolioItem{
+		WorkerID: workerID, Image: req.Image, Title: req.Title, Description: req.Description,
+	})
+}
+
+func (m *WorkConnectModule) UpdatePortfolioItem(ctx context.Context, workerID, itemID int64, req dto.PortfolioItemRequest) (db.PortfolioItem, error) {
+	if err := req.Validate(); err != nil {
+		return db.PortfolioItem{}, err
+	}
+	item, err := m.store.UpdatePortfolioItem(ctx, workerID, itemID, db.PortfolioItem{
+		WorkerID: workerID, ID: itemID, Image: req.Image, Title: req.Title, Description: req.Description,
+	})
+	if userpersistence.IsNotFound(err) {
+		return db.PortfolioItem{}, apperrors.ErrNotFound
+	}
+	return item, err
+}
+
+func (m *WorkConnectModule) DeletePortfolioItem(ctx context.Context, workerID, itemID int64) error {
+	err := m.store.DeletePortfolioItem(ctx, workerID, itemID)
+	if userpersistence.IsNotFound(err) {
+		return apperrors.ErrNotFound
+	}
+	return err
+}
+
+func (m *WorkConnectModule) UpdateWorkerProfile(ctx context.Context, workerID int64, req dto.UpdateWorkerProfileRequest) (db.WorkerProfile, error) {
+	update := db.WorkerProfileUpdate{
+		City:               stringPtr(req.City),
+		Headline:           stringPtr(req.Headline),
+		Bio:                stringPtr(req.Bio),
+		ExperienceYears:    intPtr(req.Experience),
+		HourlyRateETB:      float64Ptr(req.HourlyRate),
+		AvailabilityStatus: stringPtr(req.Availability),
+		Skills:             req.Skills,
+	}
+
+	profile, err := m.store.UpdateWorkerProfile(ctx, workerID, update)
+	if userpersistence.IsNotFound(err) {
+		return db.WorkerProfile{}, apperrors.ErrNotFound
+	}
+	return profile, err
+}
+
+func stringPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+func intPtr(i int) *int {
+	if i == 0 {
+		return nil
+	}
+	return &i
+}
+
+func float64Ptr(f float64) *float64 {
+	if f == 0 {
+		return nil
+	}
+	return &f
+}
+
+func (m *WorkConnectModule) SubmitVerificationRequest(ctx context.Context, workerID int64, req dto.SubmitVerificationRequest) (db.VerificationRequest, error) {
+	if len(req.Documents) == 0 {
+		return db.VerificationRequest{}, fmt.Errorf("at least one document is required")
+	}
+
+	// Convert DTO documents to model documents
+	documents := make([]db.WorkerDocument, len(req.Documents))
+	for i, doc := range req.Documents {
+		if doc.Type == "" || doc.FileURL == "" {
+			return db.VerificationRequest{}, fmt.Errorf("document type and file URL are required")
+		}
+		documents[i] = db.WorkerDocument{
+			DocumentType: doc.Type,
+			FileURL:      doc.FileURL,
+		}
+	}
+
+	verReq, err := m.store.SubmitVerificationRequest(ctx, workerID, documents)
+	if err != nil {
+		if strings.Contains(err.Error(), "worker not found") {
+			return db.VerificationRequest{}, apperrors.ErrNotFound
+		}
+		return db.VerificationRequest{}, err
+	}
+
+	return verReq, nil
+}
+
+func (m *WorkConnectModule) GetVerificationStatus(ctx context.Context, workerID int64) (db.VerificationRequest, error) {
+	verReq, err := m.store.GetVerificationStatus(ctx, workerID)
+	if userpersistence.IsNotFound(err) {
+		return db.VerificationRequest{}, apperrors.ErrNotFound
+	}
+	return verReq, err
 }
 
 func (m *WorkConnectModule) CreateServiceRequest(ctx context.Context, customerID int64, req dto.CreateServiceRequest) (db.ServiceRequestView, error) {
@@ -296,6 +424,13 @@ func (m *WorkConnectModule) InitiatePayment(ctx context.Context, customerID, req
 	if err := req.Validate(); err != nil {
 		return db.Payment{}, err
 	}
+	request, err := m.store.GetServiceRequestViewByID(ctx, requestID)
+	if err != nil {
+		return db.Payment{}, err
+	}
+	if request.Status != db.RequestStatusCompleted && request.Status != db.RequestStatusConfirmed {
+		return db.Payment{}, apperrors.ErrInvalidState
+	}
 	exists, err := m.store.RequestBelongsToCustomer(ctx, requestID, customerID)
 	if err != nil {
 		return db.Payment{}, err
@@ -417,7 +552,7 @@ func (m *WorkConnectModule) SendMessage(ctx context.Context, userID, requestID i
 }
 
 func messagingAllowedRequestStatus(status string) bool {
-	return status == db.RequestStatusAccepted || status == db.RequestStatusCompleted
+	return status == db.RequestStatusAccepted || status == db.RequestStatusInProgress || status == db.RequestStatusCompleted || status == db.RequestStatusConfirmed
 }
 
 func (m *WorkConnectModule) ParseToken(tokenString string) (AuthPrincipal, error) {
@@ -446,7 +581,7 @@ func (m *WorkConnectModule) generateToken(userID int64, fullName, role string) (
 		FullName: fullName,
 		Role:     role,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)), // this need to be 5 minute not 24 hour
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}

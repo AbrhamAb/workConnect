@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	stderrs "errors"
+	"io"
+	"log"
 
 	nethttp "net/http"
 	"strconv"
@@ -138,6 +140,193 @@ func (h *Handler) GetWorkerProfile(w nethttp.ResponseWriter, r *nethttp.Request)
 	}
 
 	response.SendSuccessResponse(w, r, nethttp.StatusOK, "worker fetched", map[string]any{"worker": worker})
+}
+
+func (h *Handler) GetWorkerReviews(w nethttp.ResponseWriter, r *nethttp.Request) {
+	workerID, err := parseIDParam(r, "workerID")
+	if err != nil {
+		response.SendErrorResponse(w, r, stderrs.New("invalid worker id"))
+		return
+	}
+
+	reviewData, err := h.Module().WorkConnect.GetWorkerReviews(r.Context(), workerID)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	response.SendSuccessResponse(w, r, nethttp.StatusOK, "worker reviews fetched", reviewData)
+}
+
+func (h *Handler) ListPortfolioItems(w nethttp.ResponseWriter, r *nethttp.Request) {
+	workerID, err := parseIDParam(r, "workerID")
+	if err != nil {
+		response.SendErrorResponse(w, r, stderrs.New("invalid worker id"))
+		return
+	}
+
+	items, err := h.Module().WorkConnect.ListPortfolioItems(r.Context(), workerID)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	response.SendSuccessResponse(w, r, nethttp.StatusOK, "portfolio fetched", map[string]any{"portfolio": items})
+}
+
+func (h *Handler) CreatePortfolioItem(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	workerID, isWorker, err := h.Module().WorkConnect.GetWorkerProfileInfo(r.Context(), principal.UserID)
+	if err != nil || !isWorker {
+		response.SendErrorResponse(w, r, apperrors.ErrForbidden)
+		return
+	}
+
+	var req dto.PortfolioItemRequest
+	if err := decodeAndValidate(r, &req); err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	item, err := h.Module().WorkConnect.CreatePortfolioItem(r.Context(), workerID, req)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	response.SendSuccessResponse(w, r, nethttp.StatusCreated, "portfolio item created", map[string]any{"portfolio": item})
+}
+
+func (h *Handler) UpdatePortfolioItem(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	workerID, isWorker, err := h.Module().WorkConnect.GetWorkerProfileInfo(r.Context(), principal.UserID)
+	if err != nil || !isWorker {
+		response.SendErrorResponse(w, r, apperrors.ErrForbidden)
+		return
+	}
+	itemID, err := parseIDParam(r, "portfolioID")
+	if err != nil {
+		response.SendErrorResponse(w, r, stderrs.New("invalid portfolio id"))
+		return
+	}
+
+	var req dto.PortfolioItemRequest
+	if err := decodeAndValidate(r, &req); err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	item, err := h.Module().WorkConnect.UpdatePortfolioItem(r.Context(), workerID, itemID, req)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	response.SendSuccessResponse(w, r, nethttp.StatusOK, "portfolio item updated", map[string]any{"portfolio": item})
+}
+
+func (h *Handler) DeletePortfolioItem(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	workerID, isWorker, err := h.Module().WorkConnect.GetWorkerProfileInfo(r.Context(), principal.UserID)
+	if err != nil || !isWorker {
+		response.SendErrorResponse(w, r, apperrors.ErrForbidden)
+		return
+	}
+	itemID, err := parseIDParam(r, "portfolioID")
+	if err != nil {
+		response.SendErrorResponse(w, r, stderrs.New("invalid portfolio id"))
+		return
+	}
+	if err := h.Module().WorkConnect.DeletePortfolioItem(r.Context(), workerID, itemID); err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	response.SendSuccessResponse(w, r, nethttp.StatusNoContent, "portfolio item deleted", nil)
+}
+
+func (h *Handler) UpdateWorkerProfile(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	workerID, _, err := h.Module().WorkConnect.GetWorkerProfileInfo(r.Context(), principal.UserID)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	var req dto.UpdateWorkerProfileRequest
+	if err := decodeAndValidate(r, &req); err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	profile, err := h.Module().WorkConnect.UpdateWorkerProfile(r.Context(), workerID, req)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	response.SendSuccessResponse(w, r, nethttp.StatusOK, "profile updated", map[string]any{"profile": profile})
+}
+
+func (h *Handler) SubmitVerificationRequest(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	workerID, _, err := h.Module().WorkConnect.GetWorkerProfileInfo(r.Context(), principal.UserID)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	var req dto.SubmitVerificationRequest
+	if err := decodeAndValidate(r, &req); err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	verReq, err := h.Module().WorkConnect.SubmitVerificationRequest(r.Context(), workerID, req)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	response.SendSuccessResponse(w, r, nethttp.StatusCreated, "verification request submitted", map[string]any{"verificationRequest": verReq})
+}
+
+func (h *Handler) GetVerificationStatus(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	workerID, _, err := h.Module().WorkConnect.GetWorkerProfileInfo(r.Context(), principal.UserID)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	verReq, err := h.Module().WorkConnect.GetVerificationStatus(r.Context(), workerID)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	response.SendSuccessResponse(w, r, nethttp.StatusOK, "verification status", map[string]any{"verificationRequest": verReq})
 }
 
 func (h *Handler) CreateCustomerRequest(w nethttp.ResponseWriter, r *nethttp.Request) {
@@ -619,7 +808,18 @@ func parseIDParam(r *nethttp.Request, paramName string) (int64, error) {
 }
 
 func decodeAndValidate(r *nethttp.Request, dst any) error {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
+	// Read the raw body for better debug logging on failure
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return stderrs.New("invalid payload")
+	}
+
+	if len(body) == 0 {
+		return stderrs.New("invalid payload")
+	}
+
+	if err := json.Unmarshal(body, dst); err != nil {
+		log.Printf("failed to unmarshal request body: %v; body=%s", err, string(body))
 		return stderrs.New("invalid payload")
 	}
 

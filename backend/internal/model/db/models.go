@@ -10,11 +10,13 @@ const (
 	AvailabilityAvailable = "available"
 	AvailabilityBusy      = "busy"
 
-	RequestStatusPending   = "pending"
-	RequestStatusAccepted  = "accepted"
-	RequestStatusRejected  = "rejected"
-	RequestStatusCompleted = "completed"
-	RequestStatusCancelled = "cancelled"
+	RequestStatusPending    = "pending"
+	RequestStatusAccepted   = "accepted"
+	RequestStatusInProgress = "in_progress"
+	RequestStatusCompleted  = "completed"
+	RequestStatusConfirmed  = "confirmed"
+	RequestStatusRejected   = "rejected"
+	RequestStatusCancelled  = "cancelled"
 
 	PaymentStatusPending = "pending"
 	PaymentStatusPaid    = "paid"
@@ -36,8 +38,6 @@ type User struct {
 	UpdatedAt    time.Time `json:"updatedAt"`
 }
 
-
-
 type WorkerProfile struct {
 	ID                 int64     `json:"id"`
 	UserID             int64     `json:"userId"`
@@ -53,6 +53,16 @@ type WorkerProfile struct {
 	CompletedJobs      int       `json:"completedJobs"`
 	CreatedAt          time.Time `json:"createdAt"`
 	UpdatedAt          time.Time `json:"updatedAt"`
+}
+
+type WorkerProfileUpdate struct {
+	City               *string
+	Headline           *string
+	Bio                *string
+	ExperienceYears    *int
+	HourlyRateETB      *float64
+	AvailabilityStatus *string
+	Skills             []string
 }
 
 type WorkerCard struct {
@@ -76,6 +86,39 @@ type WorkerDetails struct {
 	Phone  string     `json:"phone"`
 	Email  string     `json:"email"`
 	Skills []string   `json:"skills"`
+}
+
+type PortfolioItem struct {
+	ID          int64     `json:"id"`
+	WorkerID    int64     `json:"workerId"`
+	Image       string    `json:"image"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
+type Review struct {
+	ID                   int64     `json:"id"`
+	RequestID            int64     `json:"requestId"`
+	WorkerID             int64     `json:"workerId"`
+	CustomerID           int64     `json:"customerId"`
+	CustomerName         string    `json:"customerName"`
+	CustomerInitials     string    `json:"customerInitials"`
+	CustomerProfileImage string    `json:"customerProfileImage"`
+	Rating               int       `json:"rating"`
+	Comment              string    `json:"comment"`
+	CreatedAt            time.Time `json:"createdAt"`
+}
+
+type WorkerReviewSummary struct {
+	Rating       float64 `json:"rating"`
+	TotalReviews int     `json:"totalReviews"`
+}
+
+type WorkerReviewResponse struct {
+	Rating  WorkerReviewSummary `json:"rating"`
+	Reviews []Review            `json:"reviews"`
 }
 
 type ServiceRequest struct {
@@ -117,15 +160,20 @@ type Payment struct {
 }
 
 type CustomerDashboard struct {
-	TotalRequests     int `json:"totalRequests"`
-	PendingRequests   int `json:"pendingRequests"`
-	CompletedRequests int `json:"completedRequests"`
+	TotalRequests      int `json:"totalRequests"`
+	PendingRequests    int `json:"pendingRequests"`
+	AcceptedRequests   int `json:"acceptedRequests"`
+	InProgressRequests int `json:"inProgressRequests"`
+	CompletedRequests  int `json:"completedRequests"` // awaiting customer confirmation
+	ConfirmedRequests  int `json:"confirmedRequests"` // customer confirmed/completed
 }
 
 type WorkerDashboard struct {
 	IncomingPendingRequests int     `json:"incomingPendingRequests"`
 	AcceptedRequests        int     `json:"acceptedRequests"`
-	CompletedJobs           int     `json:"completedJobs"`
+	InProgressJobs          int     `json:"inProgressJobs"`
+	CompletedJobs           int     `json:"completedJobs"` // awaiting customer confirmation
+	ConfirmedJobs           int     `json:"confirmedJobs"` // customer confirmed/completed
 	EstimatedEarningsETB    float64 `json:"estimatedEarningsEtb"`
 }
 
@@ -156,4 +204,30 @@ type Message struct {
 	Body           string    `json:"body"`
 	MessageType    string    `json:"messageType"`
 	CreatedAt      time.Time `json:"createdAt"`
+}
+
+type VerificationRequest struct {
+	ID              int64      `json:"id"`
+	WorkerID        int64      `json:"workerId"`
+	Status          string     `json:"status"` // pending, in_review, approved, rejected
+	SubmittedAt     time.Time  `json:"submittedAt"`
+	ReviewedAt      *time.Time `json:"reviewedAt,omitempty"`
+	ReviewedBy      *int64     `json:"reviewedBy,omitempty"`
+	RejectionReason string     `json:"rejectionReason"`
+	CreatedAt       time.Time  `json:"createdAt"`
+	UpdatedAt       time.Time  `json:"updatedAt"`
+}
+
+type WorkerDocument struct {
+	ID            int64     `json:"id"`
+	WorkerID      int64     `json:"workerId"`
+	DocumentType  string    `json:"documentType"` // government_id, professional_certificate, business_license, other
+	FileURL       string    `json:"fileUrl"`
+	FileName      string    `json:"fileName"`
+	MimeType      string    `json:"mimeType"`
+	FileSizeBytes int64     `json:"fileSizeBytes"`
+	Status        string    `json:"status"` // pending, approved, rejected
+	ReviewNotes   string    `json:"reviewNotes"`
+	UploadedAt    time.Time `json:"uploadedAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
 }

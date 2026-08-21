@@ -101,15 +101,14 @@ export default function RequestSidebar({ request, review, onRequestUpdated }) {
       case "completed":
         return (
           <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
-            Waiting for the customer to confirm that the work has been
-            completed.
+            Awaiting customer confirmation. The customer will review and confirm the completion.
           </div>
         );
 
       case "confirmed":
         return (
           <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
-            This job has been completed successfully.
+            This job has been completed and confirmed by the customer.
           </div>
         );
 

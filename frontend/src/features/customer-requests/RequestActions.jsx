@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { Card } from "@/components/card";
 import LeaveReviewCard from "./LeaveReviewCard";
+import PaymentCard from "./PaymentCard";
 
 import { cancelRequest, confirmCompletion } from "@/services/request.service";
 
@@ -13,6 +14,7 @@ export default function RequestActions({
   requestId,
   workerId,
   status,
+  budget,
   onRequestUpdated,
 }) {
   const [loadingAction, setLoadingAction] = useState(null);
@@ -21,7 +23,7 @@ export default function RequestActions({
 
   useEffect(() => {
     async function checkReview() {
-      if (status !== "CONFIRMED") return;
+      if (status !== "confirmed") return;
 
       try {
         setCheckingReview(true);
@@ -88,7 +90,7 @@ export default function RequestActions({
       <h3 className="text-lg font-bold text-[#1A362D]">Quick Actions</h3>
 
       <div className="mt-5 space-y-3">
-        {(status === "PENDING" || status === "ACCEPTED") && (
+        {(status === "pending" || status === "accepted") && (
           <button
             type="button"
             onClick={handleCancel}
@@ -99,7 +101,7 @@ export default function RequestActions({
           </button>
         )}
 
-        {(status === "ACCEPTED" || status === "IN PROGRESS") && (
+        {(status === "accepted" || status === "in_progress") && (
           <button
             type="button"
             disabled
@@ -109,7 +111,7 @@ export default function RequestActions({
           </button>
         )}
 
-        {status === "COMPLETED" && (
+        {status === "completed" && (
           <button
             type="button"
             onClick={handleConfirmCompletion}
@@ -122,7 +124,7 @@ export default function RequestActions({
           </button>
         )}
 
-        {status === "CONFIRMED" && (
+        {status === "confirmed" && (
           <>
             {checkingReview ? (
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-500">
@@ -148,7 +150,7 @@ export default function RequestActions({
           </>
         )}
 
-        {(status === "DECLINED" || status === "CANCELLED") && (
+        {(status === "declined" || status === "cancelled") && (
           <button
             type="button"
             disabled
@@ -156,6 +158,14 @@ export default function RequestActions({
           >
             No Actions Available
           </button>
+        )}
+
+        {(status === "completed" || status === "confirmed") && (
+          <PaymentCard
+            requestId={requestId}
+            budget={budget}
+            onPaymentInitiated={onRequestUpdated}
+          />
         )}
       </div>
 

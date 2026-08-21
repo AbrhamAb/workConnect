@@ -7,10 +7,8 @@ function getStatusVariant(status) {
   switch (status) {
     case "accepted":
     case "confirmed":
-      return "success";
-
     case "completed":
-      return "primary";
+      return "success";
 
     case "declined":
     case "cancelled":

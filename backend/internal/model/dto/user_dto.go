@@ -14,10 +14,11 @@ type LoginRequest struct {
 }
 
 type UserLoginResponse struct {
-	ID       int64  `json:"id"`
-	FullName string `json:"fullName"`
-	Role     string `json:"role"`
-	Token    string `json:"token"`
+	ID              int64  `json:"id"`
+	FullName        string `json:"fullName"`
+	Role            string `json:"role"`
+	Token           string `json:"token"`
+	WorkerProfileID *int64 `json:"workerProfileId,omitempty"`
 }
 type WorkerSearchQuery struct {
 	Category string `json:"category"`
@@ -48,6 +49,22 @@ type UpdateProfileImageRequest struct {
 	ProfileImage string `json:"profileImage"`
 }
 
+type UpdateWorkerProfileRequest struct {
+	City         string   `json:"city"`
+	Headline     string   `json:"headline"`
+	Bio          string   `json:"bio"`
+	Experience   int      `json:"experience"`
+	HourlyRate   float64  `json:"hourlyRate"`
+	Availability string   `json:"availability"`
+	Skills       []string `json:"skills"`
+}
+
+type PortfolioItemRequest struct {
+	Image       string `json:"image"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
 type SubmitReviewRequest struct {
 	Rating  int    `json:"rating"`
 	Comment string `json:"comment"`
@@ -66,4 +83,13 @@ type SendMessageRequest struct {
 type ListMessagesQuery struct {
 	Limit    int   `json:"limit"`
 	BeforeID int64 `json:"beforeId"`
+}
+
+type SubmitVerificationRequest struct {
+	Documents []VerificationDocument `json:"documents"`
+}
+
+type VerificationDocument struct {
+	Type    string `json:"type"`    // government_id, professional_certificate, business_license, other
+	FileURL string `json:"fileUrl"` // URL to document file
 }

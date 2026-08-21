@@ -102,10 +102,10 @@ export default function WorkerRequestDetailsPage() {
         return "Work In Progress";
 
       case "completed":
-        return "Awaiting Customer Confirmation";
+        return "Awaiting Confirmation";
 
       case "confirmed":
-        return "Completed Request";
+        return "Completed & Confirmed";
 
       case "declined":
         return "Declined Request";

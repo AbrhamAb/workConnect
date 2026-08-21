@@ -294,6 +294,261 @@ func (s *sqlStore) GetWorkerDetails(ctx context.Context, workerID int64) (db.Wor
 	return details, rows.Err()
 }
 
+func (s *sqlStore) GetWorkerReviews(ctx context.Context, workerID int64) (db.WorkerReviewResponse, error) {
+	var rating db.WorkerReviewSummary
+	if err := s.db.QueryRowContext(ctx, `
+		SELECT rating_average, rating_count
+		FROM worker_profiles
+		WHERE id = $1
+	`, workerID).Scan(&rating.Rating, &rating.TotalReviews); err != nil {
+		return db.WorkerReviewResponse{}, err
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT
+			r.id,
+			r.request_id,
+			r.worker_id,
+			r.customer_id,
+			COALESCE(cu.full_name, 'Verified Customer') AS customer_name,
+			COALESCE(SUBSTRING(cu.full_name, 1, 1), 'V') || COALESCE(SUBSTRING(cu.full_name FROM POSITION(' ' IN cu.full_name) + 1 FOR 1), '') AS customer_initials,
+			COALESCE(cu.profile_image, '') AS customer_profile_image,
+			r.rating,
+			COALESCE(r.comment, '') AS comment,
+			r.created_at
+		FROM reviews r
+		LEFT JOIN users cu ON cu.id = r.customer_id
+		WHERE r.worker_id = $1
+		ORDER BY r.created_at DESC
+	`, workerID)
+	if err != nil {
+		return db.WorkerReviewResponse{}, err
+	}
+	defer rows.Close()
+
+	reviews := make([]db.Review, 0)
+	for rows.Next() {
+		var item db.Review
+		if err = rows.Scan(
+			&item.ID,
+			&item.RequestID,
+			&item.WorkerID,
+			&item.CustomerID,
+			&item.CustomerName,
+			&item.CustomerInitials,
+			&item.CustomerProfileImage,
+			&item.Rating,
+			&item.Comment,
+			&item.CreatedAt,
+		); err != nil {
+			return db.WorkerReviewResponse{}, err
+		}
+		reviews = append(reviews, item)
+	}
+
+	return db.WorkerReviewResponse{Rating: rating, Reviews: reviews}, rows.Err()
+}
+
+func (s *sqlStore) ListPortfolioItems(ctx context.Context, workerID int64) ([]db.PortfolioItem, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT p.id, p.worker_id,
+		       COALESCE(NULLIF(media.media_url, ''), p.cover_image_url),
+		       p.title, p.description, p.created_at, p.updated_at
+		FROM worker_portfolio_projects p
+		LEFT JOIN LATERAL (
+			SELECT media_url
+			FROM worker_portfolio_media
+			WHERE portfolio_project_id = p.id AND media_type = 'image'
+			ORDER BY display_order ASC, id ASC
+			LIMIT 1
+		) media ON TRUE
+		WHERE p.worker_id = $1 AND p.is_published = TRUE
+		ORDER BY p.created_at DESC
+	`, workerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]db.PortfolioItem, 0)
+	for rows.Next() {
+		var item db.PortfolioItem
+		if err := rows.Scan(&item.ID, &item.WorkerID, &item.Image, &item.Title, &item.Description, &item.CreatedAt, &item.UpdatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (s *sqlStore) CreatePortfolioItem(ctx context.Context, workerID int64, item db.PortfolioItem) (db.PortfolioItem, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return db.PortfolioItem{}, err
+	}
+	defer tx.Rollback()
+
+	var created db.PortfolioItem
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO worker_portfolio_projects (worker_id, title, description, cover_image_url)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, worker_id, title, description, cover_image_url, created_at, updated_at
+	`, workerID, item.Title, item.Description, item.Image).Scan(
+		&created.ID, &created.WorkerID, &created.Title, &created.Description,
+		&created.Image, &created.CreatedAt, &created.UpdatedAt,
+	)
+	if err != nil {
+		return db.PortfolioItem{}, err
+	}
+
+	if _, err = tx.ExecContext(ctx, `
+		INSERT INTO worker_portfolio_media (portfolio_project_id, media_url, media_type, display_order)
+		VALUES ($1, $2, 'image', 0)
+	`, created.ID, item.Image); err != nil {
+		return db.PortfolioItem{}, err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return db.PortfolioItem{}, err
+	}
+	return created, nil
+}
+
+func (s *sqlStore) UpdatePortfolioItem(ctx context.Context, workerID, itemID int64, item db.PortfolioItem) (db.PortfolioItem, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return db.PortfolioItem{}, err
+	}
+	defer tx.Rollback()
+
+	var updated db.PortfolioItem
+	err = tx.QueryRowContext(ctx, `
+		UPDATE worker_portfolio_projects
+		SET title = $1, description = $2, cover_image_url = $3, updated_at = NOW()
+		WHERE id = $4 AND worker_id = $5
+		RETURNING id, worker_id, title, description, cover_image_url, created_at, updated_at
+	`, item.Title, item.Description, item.Image, itemID, workerID).Scan(
+		&updated.ID, &updated.WorkerID, &updated.Title, &updated.Description,
+		&updated.Image, &updated.CreatedAt, &updated.UpdatedAt,
+	)
+	if err != nil {
+		return db.PortfolioItem{}, err
+	}
+
+	if _, err = tx.ExecContext(ctx, `
+		UPDATE worker_portfolio_media
+		SET media_url = $1
+		WHERE portfolio_project_id = $2 AND media_type = 'image'
+	`, item.Image, itemID); err != nil {
+		return db.PortfolioItem{}, err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return db.PortfolioItem{}, err
+	}
+	return updated, nil
+}
+
+func (s *sqlStore) DeletePortfolioItem(ctx context.Context, workerID, itemID int64) error {
+	result, err := s.db.ExecContext(ctx, `
+		DELETE FROM worker_portfolio_projects
+		WHERE id = $1 AND worker_id = $2
+	`, itemID, workerID)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (s *sqlStore) UpdateWorkerProfile(ctx context.Context, workerID int64, updates db.WorkerProfileUpdate) (db.WorkerProfile, error) {
+	q := `
+		UPDATE worker_profiles
+		SET
+			headline = COALESCE($1, headline),
+			bio = COALESCE($2, bio),
+			city = COALESCE($3, city),
+			experience_years = COALESCE($4, experience_years),
+			hourly_rate_etb = COALESCE($5, hourly_rate_etb),
+			availability_status = COALESCE($6, availability_status),
+			updated_at = NOW()
+		WHERE id = $7
+		RETURNING
+			id, user_id, headline, bio, city, experience_years, hourly_rate_etb,
+			availability_status, is_verified, rating_average, rating_count, completed_jobs,
+			created_at, updated_at
+	`
+
+	var profile db.WorkerProfile
+	err := s.db.QueryRowContext(ctx, q,
+		updates.Headline, updates.Bio, updates.City, updates.ExperienceYears,
+		updates.HourlyRateETB, updates.AvailabilityStatus, workerID,
+	).Scan(
+		&profile.ID, &profile.UserID, &profile.Headline, &profile.Bio, &profile.City,
+		&profile.ExperienceYears, &profile.HourlyRateETB, &profile.AvailabilityStatus,
+		&profile.IsVerified, &profile.RatingAverage, &profile.RatingCount,
+		&profile.CompletedJobs, &profile.CreatedAt, &profile.UpdatedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return db.WorkerProfile{}, fmt.Errorf("worker profile not found")
+		}
+		return db.WorkerProfile{}, err
+	}
+
+	if len(updates.Skills) > 0 {
+		if err = s.updateWorkerSkills(ctx, workerID, updates.Skills); err != nil {
+			return db.WorkerProfile{}, err
+		}
+	}
+
+	return profile, nil
+}
+
+func (s *sqlStore) updateWorkerSkills(ctx context.Context, workerID int64, skills []string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err = tx.ExecContext(ctx, `DELETE FROM worker_skills WHERE worker_id = $1`, workerID); err != nil {
+		return err
+	}
+
+	if len(skills) > 0 {
+		for _, skillName := range skills {
+			var categoryID int64
+			err = tx.QueryRowContext(ctx,
+				`SELECT id FROM service_categories WHERE LOWER(name) = LOWER($1)`,
+				skillName,
+			).Scan(&categoryID)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					continue
+				}
+				return err
+			}
+
+			if _, err = tx.ExecContext(ctx,
+				`INSERT INTO worker_skills (worker_id, category_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+				workerID, categoryID,
+			); err != nil {
+				return err
+			}
+		}
+	}
+
+	return tx.Commit()
+}
+
 func (s *sqlStore) GetWorkerPrimaryCategoryID(ctx context.Context, workerID int64) (int64, error) {
 	q := `
 		SELECT category_id
@@ -521,6 +776,10 @@ func (s *sqlStore) StartServiceRequestByWorker(ctx context.Context, workerUserID
 }
 
 func (s *sqlStore) ConfirmServiceRequestByCustomer(ctx context.Context, customerID, requestID int64) (db.ServiceRequestView, error) {
+	// Customer explicitly confirms that work is complete.
+	// Only the customer who owns the request can confirm.
+	// Confirmation is only allowed when status = 'completed'.
+	// Once confirmed, the request is terminal.
 	q := `
 		UPDATE service_requests
 		SET status = 'confirmed', updated_at = NOW()
@@ -541,13 +800,13 @@ func (s *sqlStore) ConfirmServiceRequestByCustomer(ctx context.Context, customer
 
 func (s *sqlStore) CancelServiceRequestByCustomer(ctx context.Context, customerID, requestID int64) (db.ServiceRequestView, error) {
 	q := `
-		UPDATE service_requests
-		SET status = 'cancelled', updated_at = NOW()
-		WHERE id = $1
-		  AND customer_id = $2
-		  AND status IN ('pending', 'accepted')
-		RETURNING id
-	`
+				UPDATE service_requests
+				SET status = 'cancelled', updated_at = NOW()
+				WHERE id = $1
+					AND customer_id = $2
+					AND status IN ('pending', 'accepted', 'in_progress')
+				RETURNING id
+		`
 
 	var updatedID int64
 	err := s.db.QueryRowContext(ctx, q, requestID, customerID).Scan(&updatedID)
@@ -566,7 +825,7 @@ func (s *sqlStore) MarkServiceRequestCompletedByWorker(ctx context.Context, work
 		WHERE sr.id = $1
 		  AND sr.worker_id = wp.id
 		  AND wp.user_id = $2
-		  AND sr.status = 'accepted'
+					AND sr.status = 'in_progress'
 		RETURNING sr.id
 	`
 
@@ -604,7 +863,7 @@ func (s *sqlStore) CreateReview(ctx context.Context, requestID, customerID int64
 		INSERT INTO reviews (request_id, customer_id, worker_id, rating, comment)
 		SELECT sr.id, sr.customer_id, sr.worker_id, $3, $4
 		FROM service_requests sr
-		WHERE sr.id = $1 AND sr.customer_id = $2 AND sr.status = 'completed'
+		WHERE sr.id = $1 AND sr.customer_id = $2 AND sr.status = 'confirmed'
 	`
 	res, err := s.db.ExecContext(ctx, q, requestID, customerID, rating, comment)
 	if err != nil {
@@ -640,6 +899,32 @@ func (s *sqlStore) RefreshWorkerRating(ctx context.Context, requestID int64) err
 }
 
 func (s *sqlStore) InitiatePayment(ctx context.Context, requestID int64, amount float64, provider, providerRef string) (db.Payment, error) {
+	var existing db.Payment
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, request_id, amount_etb, currency, provider, provider_ref, status, paid_at, created_at, updated_at
+		FROM payments
+		WHERE request_id = $1 AND status IN ('pending', 'paid')
+		ORDER BY id DESC
+		LIMIT 1
+	`, requestID).Scan(
+		&existing.ID,
+		&existing.RequestID,
+		&existing.AmountETB,
+		&existing.Currency,
+		&existing.Provider,
+		&existing.ProviderRef,
+		&existing.Status,
+		&existing.PaidAt,
+		&existing.CreatedAt,
+		&existing.UpdatedAt,
+	)
+	if err == nil {
+		return existing, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return db.Payment{}, err
+	}
+
 	q := `
 		INSERT INTO payments (request_id, amount_etb, provider, provider_ref, status)
 		VALUES ($1, $2, $3, $4, 'pending')
@@ -647,7 +932,7 @@ func (s *sqlStore) InitiatePayment(ctx context.Context, requestID int64, amount 
 	`
 
 	var payment db.Payment
-	err := s.db.QueryRowContext(ctx, q, requestID, amount, provider, providerRef).Scan(
+	err = s.db.QueryRowContext(ctx, q, requestID, amount, provider, providerRef).Scan(
 		&payment.ID,
 		&payment.RequestID,
 		&payment.AmountETB,
@@ -855,13 +1140,23 @@ func (s *sqlStore) CustomerDashboard(ctx context.Context, customerID int64) (db.
 		SELECT
 			COUNT(*)::int AS total_requests,
 			COUNT(*) FILTER (WHERE status = 'pending')::int AS pending_requests,
-			COUNT(*) FILTER (WHERE status = 'completed')::int AS completed_requests
+			COUNT(*) FILTER (WHERE status = 'accepted')::int AS accepted_requests,
+			COUNT(*) FILTER (WHERE status = 'in_progress')::int AS in_progress_requests,
+			COUNT(*) FILTER (WHERE status = 'completed')::int AS completed_requests,
+			COUNT(*) FILTER (WHERE status = 'confirmed')::int AS confirmed_requests
 		FROM service_requests
 		WHERE customer_id = $1
 	`
 
 	var out db.CustomerDashboard
-	err := s.db.QueryRowContext(ctx, q, customerID).Scan(&out.TotalRequests, &out.PendingRequests, &out.CompletedRequests)
+	err := s.db.QueryRowContext(ctx, q, customerID).Scan(
+		&out.TotalRequests,
+		&out.PendingRequests,
+		&out.AcceptedRequests,
+		&out.InProgressRequests,
+		&out.CompletedRequests,
+		&out.ConfirmedRequests,
+	)
 	return out, err
 }
 
@@ -870,7 +1165,9 @@ func (s *sqlStore) WorkerDashboard(ctx context.Context, workerUserID int64) (db.
 		SELECT
 			COUNT(*) FILTER (WHERE sr.status = 'pending')::int AS incoming_pending,
 			COUNT(*) FILTER (WHERE sr.status = 'accepted')::int AS accepted_requests,
+			COUNT(*) FILTER (WHERE sr.status = 'in_progress')::int AS in_progress_jobs,
 			COUNT(*) FILTER (WHERE sr.status = 'completed')::int AS completed_jobs,
+			COUNT(*) FILTER (WHERE sr.status = 'confirmed')::int AS confirmed_jobs,
 			COALESCE(SUM(p.amount_etb) FILTER (WHERE p.status = 'paid'), 0)::numeric(12,2) AS earnings
 		FROM service_requests sr
 		INNER JOIN worker_profiles wp ON wp.id = sr.worker_id
@@ -882,7 +1179,9 @@ func (s *sqlStore) WorkerDashboard(ctx context.Context, workerUserID int64) (db.
 	err := s.db.QueryRowContext(ctx, q, workerUserID).Scan(
 		&out.IncomingPendingRequests,
 		&out.AcceptedRequests,
+		&out.InProgressJobs,
 		&out.CompletedJobs,
+		&out.ConfirmedJobs,
 		&out.EstimatedEarningsETB,
 	)
 	return out, err
@@ -1041,6 +1340,96 @@ func IsUniqueViolation(err error) bool {
 		return false
 	}
 	return strings.Contains(err.Error(), "duplicate key value")
+}
+
+func (s *sqlStore) SubmitVerificationRequest(ctx context.Context, workerID int64, documents []db.WorkerDocument) (db.VerificationRequest, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return db.VerificationRequest{}, err
+	}
+	defer tx.Rollback()
+
+	// Check if worker exists
+	var exists bool
+	err = tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM worker_profiles WHERE id = $1)", workerID).Scan(&exists)
+	if err != nil {
+		return db.VerificationRequest{}, err
+	}
+	if !exists {
+		return db.VerificationRequest{}, fmt.Errorf("worker not found")
+	}
+
+	// Delete existing documents for this worker
+	_, err = tx.ExecContext(ctx, "DELETE FROM worker_documents WHERE worker_id = $1", workerID)
+	if err != nil {
+		return db.VerificationRequest{}, err
+	}
+
+	// Insert new documents
+	for _, doc := range documents {
+		_, err = tx.ExecContext(ctx,
+			`INSERT INTO worker_documents (worker_id, document_type, file_url, file_name, mime_type, status)
+			 VALUES ($1, $2, $3, $4, $5, 'pending')
+			 ON CONFLICT (worker_id, document_type) DO UPDATE SET
+			 file_url = EXCLUDED.file_url,
+			 file_name = EXCLUDED.file_name,
+			 mime_type = EXCLUDED.mime_type,
+			 updated_at = NOW()`,
+			workerID, doc.DocumentType, doc.FileURL, doc.FileName, doc.MimeType,
+		)
+		if err != nil {
+			return db.VerificationRequest{}, err
+		}
+	}
+
+	// Create or update verification request
+	var verReq db.VerificationRequest
+	err = tx.QueryRowContext(ctx,
+		`INSERT INTO worker_verification_requests (worker_id, status)
+		 VALUES ($1, 'pending')
+		 ON CONFLICT (worker_id) DO UPDATE SET
+		 status = 'pending',
+		 submitted_at = NOW(),
+		 updated_at = NOW()
+		 RETURNING id, worker_id, status, submitted_at, reviewed_at, reviewed_by, rejection_reason, created_at, updated_at`,
+		workerID,
+	).Scan(
+		&verReq.ID, &verReq.WorkerID, &verReq.Status, &verReq.SubmittedAt,
+		&verReq.ReviewedAt, &verReq.ReviewedBy, &verReq.RejectionReason,
+		&verReq.CreatedAt, &verReq.UpdatedAt,
+	)
+	if err != nil {
+		return db.VerificationRequest{}, err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return db.VerificationRequest{}, err
+	}
+
+	return verReq, nil
+}
+
+func (s *sqlStore) GetVerificationStatus(ctx context.Context, workerID int64) (db.VerificationRequest, error) {
+	var verReq db.VerificationRequest
+	err := s.db.QueryRowContext(ctx,
+		`SELECT id, worker_id, status, submitted_at, reviewed_at, reviewed_by, rejection_reason, created_at, updated_at
+		 FROM worker_verification_requests
+		 WHERE worker_id = $1`,
+		workerID,
+	).Scan(
+		&verReq.ID, &verReq.WorkerID, &verReq.Status, &verReq.SubmittedAt,
+		&verReq.ReviewedAt, &verReq.ReviewedBy, &verReq.RejectionReason,
+		&verReq.CreatedAt, &verReq.UpdatedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return db.VerificationRequest{}, fmt.Errorf("verification request not found")
+		}
+		return db.VerificationRequest{}, err
+	}
+
+	return verReq, nil
 }
 
 func IsNotFound(err error) bool {

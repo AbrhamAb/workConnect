@@ -1,6 +1,19 @@
+"use client";
+
+import { useState } from "react";
 import { Card } from "@/components/card";
 
-export function CertificateUpload() {
+export function CertificateUpload({ onFileSelected, selectedFile }) {
+  const [fileName, setFileName] = useState(selectedFile?.name || "");
+
+  function handleFileChange(e) {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFileName(file.name);
+      onFileSelected?.(file, "certificate");
+    }
+  }
+
   return (
     <Card>
       <div className="space-y-6">
@@ -64,7 +77,13 @@ export function CertificateUpload() {
             PNG, JPG or PDF • Max 10 MB
           </p>
 
-          <input type="file" className="hidden" />
+          {fileName && (
+            <p className="mt-3 text-xs text-blue-600 font-medium">
+              ✓ {fileName}
+            </p>
+          )}
+
+          <input type="file" className="hidden" onChange={handleFileChange} accept="image/*,.pdf" />
         </label>
       </div>
     </Card>

@@ -74,6 +74,20 @@ function getErrorMessage(payload, fallback) {
   );
 }
 
+function clearAuthState() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  localStorage.removeItem(CURRENT_USER_KEY);
+
+  try {
+    window.dispatchEvent(new CustomEvent("workconnect:authChanged", { detail: null }));
+  } catch {
+    // ignore missing browser API in non-browser tests
+  }
+}
+
 export async function apiRequest(path, { method = "GET", body, query, auth = true } = {}) {
   const headers = {
     Accept: "application/json",
@@ -92,6 +106,10 @@ export async function apiRequest(path, { method = "GET", body, query, auth = tru
 
   const response = await fetch(buildUrl(path, query), requestInit);
   const payload = await parseResponse(response);
+
+  if (response.status === 401) {
+    clearAuthState();
+  }
 
   if (!response.ok) {
     throw new Error(getErrorMessage(payload, response.statusText));

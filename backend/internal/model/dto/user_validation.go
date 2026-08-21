@@ -40,6 +40,20 @@ func (r RegisterRequest) Validate() error {
 	)
 }
 
+func (r UpdateProfileImageRequest) Validate() error {
+	return validation.ValidateStruct(&r,
+		validation.Field(&r.ProfileImage, validation.Required.Error("profile image is required"), validation.Length(1, 1000000).Error("profile image is required")),
+	)
+}
+
+func (r PortfolioItemRequest) Validate() error {
+	return validation.ValidateStruct(&r,
+		validation.Field(&r.Image, validation.Required, validation.Length(1, 2000000)),
+		validation.Field(&r.Title, validation.Required, validation.Length(1, 140)),
+		validation.Field(&r.Description, validation.Length(0, 5000)),
+	)
+}
+
 func (r LoginRequest) Validate() error {
 	return validation.ValidateStruct(&r,
 		validation.Field(&r.Email, validation.Required.Error("email is required"), is.Email.Error("email must be valid")),
@@ -83,12 +97,6 @@ func (r WorkerDecisionRequest) Validate() error {
 func (r UpdateAvailabilityRequest) Validate() error {
 	return validation.ValidateStruct(&r,
 		validation.Field(&r.AvailabilityStatus, validation.Required, validation.In(db.AvailabilityAvailable, db.AvailabilityBusy)),
-	)
-}
-
-func (r UpdateProfileImageRequest) Validate() error {
-	return validation.ValidateStruct(&r,
-		validation.Field(&r.ProfileImage, validation.Required.Error("profile image is required"), validation.Length(1, 1000000).Error("profile image is required")),
 	)
 }
 

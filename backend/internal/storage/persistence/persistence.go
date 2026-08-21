@@ -13,6 +13,12 @@ type Store interface {
 	CreateWorkerProfile(ctx context.Context, userID int64) error
 	ListWorkers(ctx context.Context, category, city, qTerm, sort string) ([]db.WorkerCard, error)
 	GetWorkerDetails(ctx context.Context, workerID int64) (db.WorkerDetails, error)
+	GetWorkerReviews(ctx context.Context, workerID int64) (db.WorkerReviewResponse, error)
+	ListPortfolioItems(ctx context.Context, workerID int64) ([]db.PortfolioItem, error)
+	CreatePortfolioItem(ctx context.Context, workerID int64, item db.PortfolioItem) (db.PortfolioItem, error)
+	UpdatePortfolioItem(ctx context.Context, workerID, itemID int64, item db.PortfolioItem) (db.PortfolioItem, error)
+	DeletePortfolioItem(ctx context.Context, workerID, itemID int64) error
+	UpdateWorkerProfile(ctx context.Context, workerID int64, updates db.WorkerProfileUpdate) (db.WorkerProfile, error)
 	CreateServiceRequest(ctx context.Context, request db.ServiceRequest) (db.ServiceRequest, error)
 	GetServiceRequestViewByID(ctx context.Context, requestID int64) (db.ServiceRequestView, error)
 	GetWorkerPrimaryCategoryID(ctx context.Context, workerID int64) (int64, error)
@@ -38,6 +44,8 @@ type Store interface {
 	AdminDashboard(ctx context.Context) (db.AdminDashboard, error)
 	PendingWorkerVerifications(ctx context.Context) ([]db.WorkerCard, error)
 	VerifyWorker(ctx context.Context, workerID int64, verified bool) error
+	SubmitVerificationRequest(ctx context.Context, workerID int64, documents []db.WorkerDocument) (db.VerificationRequest, error)
+	GetVerificationStatus(ctx context.Context, workerID int64) (db.VerificationRequest, error)
 	WorkerProfileByUserID(ctx context.Context, userID int64) (int64, bool, error)
 	RequestBelongsToCustomer(ctx context.Context, requestID, customerID int64) (bool, error)
 	DB() db.DBTX

@@ -16,6 +16,10 @@ type Handler interface {
 	UpdateCurrentUser(w http.ResponseWriter, r *http.Request)
 	ListWorkers(w http.ResponseWriter, r *http.Request)
 	GetWorkerProfile(w http.ResponseWriter, r *http.Request)
+	GetWorkerReviews(w http.ResponseWriter, r *http.Request)
+	UpdateWorkerProfile(w http.ResponseWriter, r *http.Request)
+	SubmitVerificationRequest(w http.ResponseWriter, r *http.Request)
+	GetVerificationStatus(w http.ResponseWriter, r *http.Request)
 	CreateCustomerRequest(w http.ResponseWriter, r *http.Request)
 	ListCustomerRequests(w http.ResponseWriter, r *http.Request)
 	GetCustomerRequest(w http.ResponseWriter, r *http.Request)
@@ -37,6 +41,10 @@ type Handler interface {
 	ListMessageConversations(w http.ResponseWriter, r *http.Request)
 	ListMessagesByRequest(w http.ResponseWriter, r *http.Request)
 	SendMessage(w http.ResponseWriter, r *http.Request)
+	ListPortfolioItems(w http.ResponseWriter, r *http.Request)
+	CreatePortfolioItem(w http.ResponseWriter, r *http.Request)
+	UpdatePortfolioItem(w http.ResponseWriter, r *http.Request)
+	DeletePortfolioItem(w http.ResponseWriter, r *http.Request)
 }
 
 func New(modules *module.Module) Handler {

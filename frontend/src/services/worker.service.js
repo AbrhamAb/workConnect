@@ -1,6 +1,6 @@
 import { delay } from "@/lib/delay";
 
-import { apiGet } from "./api.service";
+import { apiGet, apiPatch } from "./api.service";
 import { getCurrentUser, setCurrentUser } from "./auth.service";
 import { getPortfolioByWorker } from "./portfolio.service";
 import { getWorkerRating } from "./review.service";
@@ -278,11 +278,22 @@ export async function updateWorker(updates) {
     return null;
   }
 
+  const payload = {};
+  if (updates.headline !== undefined) payload.headline = updates.headline;
+  if (updates.city !== undefined) payload.city = updates.city;
+  if (updates.bio !== undefined) payload.bio = updates.bio;
+  if (updates.experience !== undefined) payload.experience = updates.experience;
+  if (updates.hourlyRate !== undefined) payload.hourlyRate = updates.hourlyRate;
+  if (updates.availability !== undefined) payload.availability = updates.availability;
+  if (updates.skills !== undefined) payload.skills = updates.skills;
+
+  const response = await apiPatch("/worker/profile", payload);
+
   const workerProfileId = currentUser.workerProfileId ?? toWorkerProfileId(currentUser.id);
-  const updatedWorker = {
-    ...(await getWorkerById(workerProfileId)),
-    ...updates,
-  };
+  const updatedWorker = mapWorkerCard({
+    ...response.profile,
+    workerId: workerProfileId,
+  });
 
   setCurrentUser({
     ...currentUser,
@@ -402,19 +413,27 @@ export async function getWorkerDashboardData() {
     getWorkerRequests(),
   ]);
 
-  const stats = {
-    totalRequests: requests.length,
-    pendingRequests: requests.filter((request) => request.status === "pending").length,
-    acceptedRequests: requests.filter((request) => request.status === "accepted").length,
-    inProgressRequests: requests.filter((request) => request.status === "in_progress").length,
-    completedRequests: requests.filter((request) => request.status === "completed" || request.status === "confirmed").length,
-  };
+  const summary = backendSummary?.summary;
+  const stats = summary
+    ? {
+        totalRequests: summary.incomingPendingRequests +
+          summary.acceptedRequests +
+          summary.inProgressJobs +
+          summary.completedJobs +
+          summary.confirmedJobs,
+        pendingRequests: summary.incomingPendingRequests,
+        acceptedRequests: summary.acceptedRequests,
+        inProgressRequests: summary.inProgressJobs,
+        completedRequests: summary.completedJobs,
+        confirmedRequests: summary.confirmedJobs,
+      }
+    : null;
 
   return {
     worker,
     stats: {
-      ...stats,
-      backendSummary: backendSummary?.summary || null,
+      ...(stats || {}),
+      backendSummary: summary || null,
     },
     recentRequests: requests.slice(0, 5),
   };
@@ -460,9 +479,7 @@ export async function getWorkerAnalyticsData() {
     getWorkerRating(worker.id),
   ]);
 
-  const completedJobs = requests.filter(
-    (request) => request.status === "completed" || request.status === "confirmed",
-  );
+  const completedJobs = requests.filter((request) => request.status === "completed");
 
   const achievements = [
     {

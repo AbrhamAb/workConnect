@@ -1,6 +1,6 @@
 import { delay } from "@/lib/delay";
 
-import { apiPost } from "./api.service";
+import { apiGet, apiPost } from "./api.service";
 import { getCurrentUser } from "./auth.service";
 
 import {
@@ -68,7 +68,22 @@ export async function getReviewById(reviewId) {
 export async function getReviewByRequest(requestId) {
   await delay();
 
-  const review = findOne("reviews", (review) => review.requestId === requestId);
+  const numericRequestId = Number(String(requestId).replace(/^req-/, ""));
+  if (!Number.isInteger(numericRequestId) || numericRequestId <= 0) {
+    return null;
+  }
+
+  const requestResponse = await apiGet(`/customer/requests/${numericRequestId}`);
+  const request = requestResponse?.request || requestResponse;
+  const numericWorkerId = Number(request?.workerId);
+  if (!Number.isInteger(numericWorkerId) || numericWorkerId <= 0) {
+    return null;
+  }
+
+  const reviewsResponse = await apiGet(`/workers/${numericWorkerId}/reviews`);
+  const review = (reviewsResponse?.reviews || []).find(
+    (item) => Number(item.requestId) === numericRequestId,
+  );
 
   return review ? buildReview(review) : null;
 }
@@ -79,9 +94,18 @@ export async function getReviewByRequest(requestId) {
 export async function getWorkerReviews(workerId) {
   await delay();
 
-  return findMany("reviews", (review) => review.workerId === workerId)
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .map(buildReview);
+  const numericWorkerId = Number(String(workerId).replace(/^worker-/, ""));
+  if (!Number.isFinite(numericWorkerId) || numericWorkerId < 1) {
+    return [];
+  }
+
+  const response = await apiGet(`/workers/${numericWorkerId}/reviews`);
+  return (response?.reviews || []).map((review) => ({
+    ...review,
+    customerName: review.customerName || "Verified Customer",
+    customerInitials: review.customerInitials || "VC",
+    customerProfileImage: review.customerProfileImage || "",
+  }));
 }
 
 /**
@@ -101,21 +125,20 @@ export async function getCustomerReviews(customerId) {
 export async function getWorkerRatingSummary(workerId) {
   await delay();
 
-  const reviews = findMany("reviews", (review) => review.workerId === workerId);
-
-  if (!reviews.length) {
+  const numericWorkerId = Number(String(workerId).replace(/^worker-/, ""));
+  if (!Number.isFinite(numericWorkerId) || numericWorkerId < 1) {
     return {
       rating: 0,
       totalReviews: 0,
     };
   }
 
-  const average =
-    reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length;
+  const response = await apiGet(`/workers/${numericWorkerId}/reviews`);
+  const summary = response?.rating || { rating: 0, totalReviews: 0 };
 
   return {
-    rating: Number(average.toFixed(1)),
-    totalReviews: reviews.length,
+    rating: Number(summary.rating ?? 0),
+    totalReviews: Number(summary.totalReviews ?? 0),
   };
 }
 
@@ -132,14 +155,8 @@ export async function getWorkerRating(workerId) {
 export async function getWorkerReviewsWithSummary(workerId) {
   await delay();
 
-  const reviews = findMany(
-    "reviews",
-    (review) => review.workerId === workerId,
-  ).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-  const enrichedReviews = reviews.map(buildReview);
-
-  if (!reviews.length) {
+  const numericWorkerId = Number(String(workerId).replace(/^worker-/, ""));
+  if (!Number.isFinite(numericWorkerId) || numericWorkerId < 1) {
     return {
       rating: {
         rating: 0,
@@ -149,15 +166,21 @@ export async function getWorkerReviewsWithSummary(workerId) {
     };
   }
 
-  const average =
-    reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length;
+  const response = await apiGet(`/workers/${numericWorkerId}/reviews`);
+  const rating = response?.rating || { rating: 0, totalReviews: 0 };
+  const reviews = (response?.reviews || []).map((review) => ({
+    ...review,
+    customerName: review.customerName || "Verified Customer",
+    customerInitials: review.customerInitials || "VC",
+    customerProfileImage: review.customerProfileImage || "",
+  }));
 
   return {
     rating: {
-      rating: Number(average.toFixed(1)),
-      totalReviews: reviews.length,
+      rating: Number(rating.rating ?? 0),
+      totalReviews: Number(rating.totalReviews ?? 0),
     },
-    reviews: enrichedReviews,
+    reviews,
   };
 }
 
@@ -165,9 +188,7 @@ export async function getWorkerReviewsWithSummary(workerId) {
  * Returns whether a request has already been reviewed.
  */
 export async function hasCustomerReviewed(requestId) {
-  await delay();
-
-  return !!findOne("reviews", (review) => review.requestId === requestId);
+  return Boolean(await getReviewByRequest(requestId));
 }
 
 /**
@@ -182,29 +203,6 @@ export async function createReview(data) {
     throw new Error("Only customers can leave reviews.");
   }
 
-  const request = findOne(
-    "requests",
-    (request) => request.id === data.requestId,
-  );
-
-  if (!request) {
-    throw new Error("Request not found.");
-  }
-
-  if (request.customerId !== customer.id) {
-    throw new Error("You can only review your own requests.");
-  }
-
-  if (request.status !== "confirmed") {
-    throw new Error(
-      "Reviews can only be submitted after the job has been confirmed.",
-    );
-  }
-
-  if (findOne("reviews", (review) => review.requestId === data.requestId)) {
-    throw new Error("This request has already been reviewed.");
-  }
-
   const rating = Number(data.rating);
 
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
@@ -213,29 +211,18 @@ export async function createReview(data) {
 
   const trimmedComment = data.comment?.trim();
 
-  const review = {
-    id: crypto.randomUUID(),
-
-    requestId: request.id,
-
-    workerId: request.workerId,
-    customerId: customer.id,
-
-    rating,
-
-    comment: trimmedComment || null,
-
-    createdAt: new Date().toISOString(),
-  };
-
   const numericRequestId = Number(String(data.requestId).replace(/^req-/, ""));
 
-  await apiPost(`/customer/requests/${numericRequestId}/review`, {
+  if (!Number.isInteger(numericRequestId) || numericRequestId <= 0) {
+    throw new Error("Invalid request id.");
+  }
+
+  const response = await apiPost(`/customer/requests/${numericRequestId}/review`, {
     rating,
     comment: trimmedComment || "",
   });
 
-  return buildReview(insertOne("reviews", review));
+  return response?.review || response;
 }
 
 /**

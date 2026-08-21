@@ -267,20 +267,24 @@ export async function getCustomerDashboardData() {
     });
   }
 
-  const stats = {
-    totalRequests: requests.length,
-    pendingRequests: requests.filter((request) => request.status === "pending").length,
-    activeRequests: requests.filter(
-      (request) => request.status === "accepted" || request.status === "in_progress",
-    ).length,
-    completedRequests: requests.filter((request) => request.status === "completed" || request.status === "confirmed").length,
-  };
+  const summary = backendSummary?.summary;
+  const stats = summary
+    ? {
+        totalRequests: summary.totalRequests,
+        pendingRequests: summary.pendingRequests,
+        activeRequests: summary.acceptedRequests + summary.inProgressRequests,
+        acceptedRequests: summary.acceptedRequests,
+        inProgressRequests: summary.inProgressRequests,
+        completedRequests: summary.completedRequests,
+        confirmedRequests: summary.confirmedRequests,
+      }
+    : null;
 
   return {
     customer,
     stats: {
-      ...stats,
-      backendSummary: backendSummary?.summary || null,
+      ...(stats || {}),
+      backendSummary: summary || null,
     },
     recentRequests,
   };

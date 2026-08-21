@@ -158,7 +158,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			location_address VARCHAR(255) NOT NULL,
 			preferred_at TIMESTAMPTZ,
 			budget_etb NUMERIC(12,2) NOT NULL DEFAULT 0,
-			status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'completed', 'cancelled')),
+			status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'in_progress', 'completed', 'confirmed', 'rejected', 'cancelled')),
 			worker_decision_at TIMESTAMPTZ,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -233,8 +233,8 @@ func migrate(ctx context.Context, db *sql.DB) error {
 				RAISE EXCEPTION 'service request % not found', NEW.request_id;
 			END IF;
 
-			IF request_status NOT IN ('accepted', 'completed') THEN
-				RAISE EXCEPTION 'messaging allowed only for accepted or completed requests';
+			IF request_status NOT IN ('accepted', 'in_progress', 'completed', 'confirmed') THEN
+				RAISE EXCEPTION 'messaging allowed only for accepted, in_progress, completed, or confirmed requests';
 			END IF;
 
 			IF NEW.customer_user_id <> request_customer_id OR NEW.worker_user_id <> request_worker_user_id THEN

@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 	apperrors "task-management-backend/internal/constant/errors"
-	user "task-management-backend/internal/module/user"
 	"task-management-backend/internal/model/response"
 	"task-management-backend/internal/module"
+	user "task-management-backend/internal/module/user"
 )
 
 type ctxKey string

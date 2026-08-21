@@ -23,6 +23,12 @@ type WorkConnectService interface {
 	GetWorkerProfileInfo(ctx context.Context, userID int64) (int64, bool, error)
 	ListWorkers(ctx context.Context, query dto.WorkerSearchQuery) ([]db.WorkerCard, error)
 	GetWorkerDetails(ctx context.Context, workerID int64) (db.WorkerDetails, error)
+	GetWorkerReviews(ctx context.Context, workerID int64) (db.WorkerReviewResponse, error)
+	ListPortfolioItems(ctx context.Context, workerID int64) ([]db.PortfolioItem, error)
+	CreatePortfolioItem(ctx context.Context, workerID int64, req dto.PortfolioItemRequest) (db.PortfolioItem, error)
+	UpdatePortfolioItem(ctx context.Context, workerID, itemID int64, req dto.PortfolioItemRequest) (db.PortfolioItem, error)
+	DeletePortfolioItem(ctx context.Context, workerID, itemID int64) error
+	UpdateWorkerProfile(ctx context.Context, workerID int64, req dto.UpdateWorkerProfileRequest) (db.WorkerProfile, error)
 	GetServiceRequestByID(ctx context.Context, requestID int64) (db.ServiceRequestView, error)
 	CreateServiceRequest(ctx context.Context, customerID int64, req dto.CreateServiceRequest) (db.ServiceRequestView, error)
 	ListCustomerRequests(ctx context.Context, customerID int64) ([]db.ServiceRequestView, error)
@@ -33,6 +39,8 @@ type WorkConnectService interface {
 	ConfirmCustomerRequest(ctx context.Context, customerID, requestID int64) (db.ServiceRequestView, error)
 	CancelCustomerRequest(ctx context.Context, customerID, requestID int64) (db.ServiceRequestView, error)
 	UpdateWorkerAvailability(ctx context.Context, workerUserID int64, req dto.UpdateAvailabilityRequest) error
+	SubmitVerificationRequest(ctx context.Context, workerID int64, req dto.SubmitVerificationRequest) (db.VerificationRequest, error)
+	GetVerificationStatus(ctx context.Context, workerID int64) (db.VerificationRequest, error)
 	SubmitReview(ctx context.Context, customerID, requestID int64, req dto.SubmitReviewRequest) error
 	InitiatePayment(ctx context.Context, customerID, requestID int64, req dto.InitiatePaymentRequest) (db.Payment, error)
 	CustomerDashboard(ctx context.Context, customerID int64) (db.CustomerDashboard, error)

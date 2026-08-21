@@ -29,6 +29,16 @@ func RegisterWorkConnectRoutes(r chi.Router, handler rest.Handler) {
 			Path:    "/workers/{workerID}",
 			Handler: handler.GetWorkerProfile,
 		},
+		{
+			Method:  http.MethodGet,
+			Path:    "/workers/{workerID}/reviews",
+			Handler: handler.GetWorkerReviews,
+		},
+		{
+			Method:  http.MethodGet,
+			Path:    "/workers/{workerID}/portfolio",
+			Handler: handler.ListPortfolioItems,
+		},
 	})
 
 	r.Route("/auth", func(auth chi.Router) {
@@ -161,6 +171,42 @@ func RegisterWorkConnectRoutes(r chi.Router, handler rest.Handler) {
 				Method:      http.MethodPatch,
 				Path:        "/availability",
 				Handler:     handler.WorkerAvailability,
+				Middlewares: protected,
+			},
+			{
+				Method:      http.MethodPatch,
+				Path:        "/profile",
+				Handler:     handler.UpdateWorkerProfile,
+				Middlewares: protected,
+			},
+			{
+				Method:      http.MethodPost,
+				Path:        "/portfolio",
+				Handler:     handler.CreatePortfolioItem,
+				Middlewares: protected,
+			},
+			{
+				Method:      http.MethodPatch,
+				Path:        "/portfolio/{portfolioID}",
+				Handler:     handler.UpdatePortfolioItem,
+				Middlewares: protected,
+			},
+			{
+				Method:      http.MethodDelete,
+				Path:        "/portfolio/{portfolioID}",
+				Handler:     handler.DeletePortfolioItem,
+				Middlewares: protected,
+			},
+			{
+				Method:      http.MethodPost,
+				Path:        "/verification",
+				Handler:     handler.SubmitVerificationRequest,
+				Middlewares: protected,
+			},
+			{
+				Method:      http.MethodGet,
+				Path:        "/verification",
+				Handler:     handler.GetVerificationStatus,
 				Middlewares: protected,
 			},
 			{

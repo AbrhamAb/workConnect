@@ -17,24 +17,24 @@ import { getReviewByRequest } from "@/services/review.service"; // NEW
 function normalizeStatus(status) {
   switch (status) {
     case "pending":
-      return "PENDING";
+      return "pending";
     case "accepted":
-      return "ACCEPTED";
+      return "accepted";
     case "in_progress":
     case "in progress":
     case "in-progress":
-      return "IN PROGRESS";
+      return "in_progress";
     case "completed":
-      return "COMPLETED";
+      return "completed";
     case "confirmed":
-      return "CONFIRMED";
+      return "confirmed";
     case "cancelled":
     case "canceled":
-      return "CANCELLED";
+      return "cancelled";
     case "declined":
-      return "DECLINED";
+      return "declined";
     default:
-      return status?.toUpperCase() || "PENDING";
+      return status || "pending";
   }
 }
 
@@ -144,39 +144,40 @@ export default function RequestDetailsPage() {
         },
         {
           title: "Worker Accepted",
-          date:
-            status === "ACCEPTED" ||
-            status === "IN PROGRESS" ||
-            status === "COMPLETED" ||
-            status === "CONFIRMED"
+            date:
+            status === "accepted" ||
+            status === "in_progress" ||
+            status === "completed" ||
+            status === "confirmed"
               ? formatDate(details.request.updatedAt)
               : "",
           completed:
-            status === "ACCEPTED" ||
-            status === "IN PROGRESS" ||
-            status === "COMPLETED" ||
-            status === "CONFIRMED",
+            status === "accepted" ||
+            status === "in_progress" ||
+            status === "completed" ||
+            status === "confirmed",
         },
         {
           title: "Work In Progress",
-          date:
-            status === "IN PROGRESS" ||
-            status === "COMPLETED" ||
-            status === "CONFIRMED"
+            date:
+            status === "in_progress" ||
+            status === "completed" ||
+            status === "confirmed"
               ? formatDate(details.request.updatedAt)
               : "",
           completed:
-            status === "IN PROGRESS" ||
-            status === "COMPLETED" ||
-            status === "CONFIRMED",
+            status === "in_progress" ||
+            status === "completed" ||
+            status === "confirmed",
         },
         {
           title: "Job Completed",
           date:
-            status === "COMPLETED" || status === "CONFIRMED"
+            status === "completed" ||
+            status === "confirmed"
               ? formatDate(details.request.updatedAt)
               : "",
-          completed: status === "COMPLETED" || status === "CONFIRMED",
+          completed: status === "completed" || status === "confirmed",
         },
       ],
     };
@@ -252,6 +253,7 @@ export default function RequestDetailsPage() {
             requestId={request.id}
             workerId={worker.id}
             status={request.status}
+            budget={request.budget}
             onRequestUpdated={handleRequestUpdated}
           />
         </div>
