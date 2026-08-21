@@ -158,6 +158,80 @@ func (h *Handler) GetWorkerReviews(w nethttp.ResponseWriter, r *nethttp.Request)
 	response.SendSuccessResponse(w, r, nethttp.StatusOK, "worker reviews fetched", reviewData)
 }
 
+func (h *Handler) ListCustomerFavorites(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	favorites, err := h.Module().WorkConnect.ListCustomerFavorites(r.Context(), principal.UserID)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	response.SendSuccessResponse(w, r, nethttp.StatusOK, "favorites fetched", map[string]any{"favorites": favorites})
+}
+
+func (h *Handler) GetCustomerFavoriteStatus(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	workerID, err := parseIDParam(r, "workerID")
+	if err != nil {
+		response.SendErrorResponse(w, r, stderrs.New("invalid worker id"))
+		return
+	}
+	_, err = h.Module().WorkConnect.GetCustomerFavorite(r.Context(), principal.UserID, workerID)
+	if stderrs.Is(err, apperrors.ErrNotFound) {
+		response.SendSuccessResponse(w, r, nethttp.StatusOK, "favorite status fetched", map[string]any{"favorited": false})
+		return
+	}
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	response.SendSuccessResponse(w, r, nethttp.StatusOK, "favorite status fetched", map[string]any{"favorited": true})
+}
+
+func (h *Handler) AddCustomerFavorite(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	workerID, err := parseIDParam(r, "workerID")
+	if err != nil {
+		response.SendErrorResponse(w, r, stderrs.New("invalid worker id"))
+		return
+	}
+	favorite, err := h.Module().WorkConnect.AddCustomerFavorite(r.Context(), principal.UserID, workerID)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	response.SendSuccessResponse(w, r, nethttp.StatusCreated, "favorite added", map[string]any{"favorite": favorite})
+}
+
+func (h *Handler) RemoveCustomerFavorite(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	workerID, err := parseIDParam(r, "workerID")
+	if err != nil {
+		response.SendErrorResponse(w, r, stderrs.New("invalid worker id"))
+		return
+	}
+	if err := h.Module().WorkConnect.RemoveCustomerFavorite(r.Context(), principal.UserID, workerID); err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	response.SendSuccessResponse(w, r, nethttp.StatusNoContent, "favorite removed", nil)
+}
+
 func (h *Handler) ListPortfolioItems(w nethttp.ResponseWriter, r *nethttp.Request) {
 	workerID, err := parseIDParam(r, "workerID")
 	if err != nil {

@@ -27,6 +27,7 @@ const categories = [
 export default function WorkersPage() {
   const [workers, setWorkers] = useState([]);
   const [favoriteIds, setFavoriteIds] = useState(new Set());
+  const [favoriteLoadingId, setFavoriteLoadingId] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -74,6 +75,7 @@ export default function WorkersPage() {
 
   async function handleFavoriteToggle(workerId) {
     try {
+      setFavoriteLoadingId(workerId);
       const favorited = await toggleFavorite(workerId);
 
       setFavoriteIds((current) => {
@@ -88,7 +90,9 @@ export default function WorkersPage() {
         return next;
       });
     } catch (err) {
-      console.error(err);
+      setError(err.message || "Unable to update favorites right now.");
+    } finally {
+      setFavoriteLoadingId(null);
     }
   }
 
@@ -232,6 +236,7 @@ export default function WorkersPage() {
                   <button
                     type="button"
                     onClick={() => handleFavoriteToggle(worker.id)}
+                    disabled={favoriteLoadingId === worker.id}
                     className="text-2xl leading-none transition hover:scale-110"
                     aria-label={
                       worker.favorite

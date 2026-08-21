@@ -17,21 +17,26 @@ import (
 
 type p1StoreStub struct {
 	persistence.Store
-	request         db.ServiceRequestView
-	belongs         bool
-	payment         db.Payment
-	verification    db.VerificationRequest
-	customerDash    db.CustomerDashboard
-	workerDash      db.WorkerDashboard
-	reviewErr       error
-	paymentErr      error
-	verificationErr error
-	transitionErr   error
-	portfolio       db.PortfolioItem
-	portfolioItems  []db.PortfolioItem
-	portfolioErr    error
-	portfolioWorker int64
-	portfolioItemID int64
+	request          db.ServiceRequestView
+	belongs          bool
+	payment          db.Payment
+	verification     db.VerificationRequest
+	customerDash     db.CustomerDashboard
+	workerDash       db.WorkerDashboard
+	reviewErr        error
+	paymentErr       error
+	verificationErr  error
+	transitionErr    error
+	portfolio        db.PortfolioItem
+	portfolioItems   []db.PortfolioItem
+	portfolioErr     error
+	portfolioWorker  int64
+	portfolioItemID  int64
+	favorite         db.Favorite
+	favorites        []db.Favorite
+	favoriteErr      error
+	favoriteCustomer int64
+	favoriteWorker   int64
 }
 
 func (s *p1StoreStub) GetServiceRequestViewByID(context.Context, int64) (db.ServiceRequestView, error) {
@@ -97,6 +102,26 @@ func (s *p1StoreStub) DeletePortfolioItem(_ context.Context, workerID, itemID in
 	s.portfolioWorker = workerID
 	s.portfolioItemID = itemID
 	return s.portfolioErr
+}
+
+func (s *p1StoreStub) ListCustomerFavorites(context.Context, int64) ([]db.Favorite, error) {
+	return s.favorites, s.favoriteErr
+}
+
+func (s *p1StoreStub) GetCustomerFavorite(context.Context, int64, int64) (db.Favorite, error) {
+	return s.favorite, s.favoriteErr
+}
+
+func (s *p1StoreStub) AddCustomerFavorite(_ context.Context, customerID, workerID int64) (db.Favorite, error) {
+	s.favoriteCustomer = customerID
+	s.favoriteWorker = workerID
+	return s.favorite, s.favoriteErr
+}
+
+func (s *p1StoreStub) RemoveCustomerFavorite(_ context.Context, customerID, workerID int64) error {
+	s.favoriteCustomer = customerID
+	s.favoriteWorker = workerID
+	return s.favoriteErr
 }
 
 func TestParseTokenRejectsInvalidAndExpiredTokens(t *testing.T) {
@@ -279,5 +304,35 @@ func TestPortfolioModificationErrorsPropagateAsNotFound(t *testing.T) {
 	}
 	if err := workConnect.DeletePortfolioItem(context.Background(), 7, 12); !errors.Is(err, apperrors.ErrNotFound) {
 		t.Fatalf("expected delete of another/missing worker item to be not found, got %v", err)
+	}
+}
+
+func TestFavoritesUseAuthenticatedCustomerOwnership(t *testing.T) {
+	store := &p1StoreStub{
+		favorite:  db.Favorite{ID: 3, CustomerID: 10, WorkerID: 7},
+		favorites: []db.Favorite{{ID: 3, CustomerID: 10, WorkerID: 7}},
+	}
+	workConnect := NewWorkConnectModule(store, "test-secret")
+
+	favorites, err := workConnect.ListCustomerFavorites(context.Background(), 10)
+	if err != nil || len(favorites) != 1 || favorites[0].CustomerID != 10 {
+		t.Fatalf("expected customer's own favorites, got favorites=%+v err=%v", favorites, err)
+	}
+
+	if _, err = workConnect.AddCustomerFavorite(context.Background(), 10, 7); err != nil || store.favoriteCustomer != 10 || store.favoriteWorker != 7 {
+		t.Fatalf("expected add ownership context, customer=%d worker=%d err=%v", store.favoriteCustomer, store.favoriteWorker, err)
+	}
+
+	if err = workConnect.RemoveCustomerFavorite(context.Background(), 10, 7); err != nil || store.favoriteCustomer != 10 || store.favoriteWorker != 7 {
+		t.Fatalf("expected remove ownership context, customer=%d worker=%d err=%v", store.favoriteCustomer, store.favoriteWorker, err)
+	}
+}
+
+func TestFavoritesMissingRemovalMapsToNotFound(t *testing.T) {
+	store := &p1StoreStub{favoriteErr: sql.ErrNoRows}
+	workConnect := NewWorkConnectModule(store, "test-secret")
+
+	if err := workConnect.RemoveCustomerFavorite(context.Background(), 10, 7); !errors.Is(err, apperrors.ErrNotFound) {
+		t.Fatalf("expected missing favorite to be not found, got %v", err)
 	}
 }

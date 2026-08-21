@@ -88,6 +88,21 @@ type WorkerDetails struct {
 	Skills []string   `json:"skills"`
 }
 
+type Favorite struct {
+	ID                  int64     `json:"id"`
+	CustomerID          int64     `json:"customerId"`
+	WorkerID            int64     `json:"workerId"`
+	FullName            string    `json:"fullName"`
+	Headline            string    `json:"headline"`
+	City                string    `json:"city"`
+	ProfileImage        string    `json:"profileImage"`
+	PrimaryCategoryName string    `json:"primaryCategoryName"`
+	RatingAverage       float64   `json:"ratingAverage"`
+	RatingCount         int       `json:"ratingCount"`
+	IsVerified          bool      `json:"isVerified"`
+	CreatedAt           time.Time `json:"createdAt"`
+}
+
 type PortfolioItem struct {
 	ID          int64     `json:"id"`
 	WorkerID    int64     `json:"workerId"`

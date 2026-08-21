@@ -167,6 +167,37 @@ func (m *WorkConnectModule) GetWorkerReviews(ctx context.Context, workerID int64
 	return reviews, err
 }
 
+func (m *WorkConnectModule) ListCustomerFavorites(ctx context.Context, customerID int64) ([]db.Favorite, error) {
+	return m.store.ListCustomerFavorites(ctx, customerID)
+}
+
+func (m *WorkConnectModule) GetCustomerFavorite(ctx context.Context, customerID, workerID int64) (db.Favorite, error) {
+	favorite, err := m.store.GetCustomerFavorite(ctx, customerID, workerID)
+	if userpersistence.IsNotFound(err) {
+		return db.Favorite{}, apperrors.ErrNotFound
+	}
+	return favorite, err
+}
+
+func (m *WorkConnectModule) AddCustomerFavorite(ctx context.Context, customerID, workerID int64) (db.Favorite, error) {
+	if workerID < 1 {
+		return db.Favorite{}, apperrors.ErrNotFound
+	}
+	favorite, err := m.store.AddCustomerFavorite(ctx, customerID, workerID)
+	if userpersistence.IsNotFound(err) {
+		return db.Favorite{}, apperrors.ErrNotFound
+	}
+	return favorite, err
+}
+
+func (m *WorkConnectModule) RemoveCustomerFavorite(ctx context.Context, customerID, workerID int64) error {
+	err := m.store.RemoveCustomerFavorite(ctx, customerID, workerID)
+	if userpersistence.IsNotFound(err) {
+		return apperrors.ErrNotFound
+	}
+	return err
+}
+
 func (m *WorkConnectModule) ListPortfolioItems(ctx context.Context, workerID int64) ([]db.PortfolioItem, error) {
 	return m.store.ListPortfolioItems(ctx, workerID)
 }

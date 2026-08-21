@@ -80,6 +80,30 @@ func RegisterWorkConnectRoutes(r chi.Router, handler rest.Handler) {
 
 		RegisterRoutes(customer, []Route{
 			{
+				Method:      http.MethodGet,
+				Path:        "/favorites",
+				Handler:     handler.ListCustomerFavorites,
+				Middlewares: protected,
+			},
+			{
+				Method:      http.MethodGet,
+				Path:        "/favorites/{workerID}/status",
+				Handler:     handler.GetCustomerFavoriteStatus,
+				Middlewares: protected,
+			},
+			{
+				Method:      http.MethodPost,
+				Path:        "/favorites/{workerID}",
+				Handler:     handler.AddCustomerFavorite,
+				Middlewares: protected,
+			},
+			{
+				Method:      http.MethodDelete,
+				Path:        "/favorites/{workerID}",
+				Handler:     handler.RemoveCustomerFavorite,
+				Middlewares: protected,
+			},
+			{
 				Method:      http.MethodPost,
 				Path:        "/requests",
 				Handler:     handler.CreateCustomerRequest,

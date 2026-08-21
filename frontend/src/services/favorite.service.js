@@ -1,32 +1,53 @@
-// src/services/favorite.service.js
-
 import { delay } from "@/lib/delay";
-
+import { apiDelete, apiGet, apiPost } from "./api.service";
 import { getCurrentUser } from "./auth.service";
 
-import { findMany, findOne, insertOne, deleteOne } from "./storage.service";
+function toNumericWorkerId(workerId) {
+  const numericId = Number(String(workerId).replace(/^worker-/, ""));
+  return Number.isInteger(numericId) && numericId > 0 ? numericId : null;
+}
+
+function normalizeFavorite(favorite) {
+  const numericWorkerId = Number(favorite?.workerId);
+  const workerId = `worker-${numericWorkerId}`;
+
+  return {
+    ...favorite,
+    id: workerId,
+    favoriteId: favorite?.id,
+    workerId,
+    numericWorkerId,
+    name: favorite?.fullName || "Worker",
+    fullName: favorite?.fullName || "Worker",
+    profession: favorite?.primaryCategoryName || favorite?.headline || "Skilled Professional",
+    rating: favorite?.ratingAverage || 0,
+    avatar: favorite?.profileImage || "/api/placeholder/150/150",
+  };
+}
+
+function requireCustomer() {
+  const customer = getCurrentUser();
+  if (!customer || customer.role !== "customer") {
+    throw new Error("Only customers can manage favorite workers.");
+  }
+  return customer;
+}
 
 /**
  * Returns every favorite.
  */
 export async function getFavorites() {
   await delay();
-
-  return findMany("favorites").sort(
-    (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
-  );
+  requireCustomer();
+  const response = await apiGet("/customer/favorites");
+  return (response?.favorites || []).map(normalizeFavorite);
 }
 
 /**
  * Returns every favorite belonging to a customer.
  */
 export async function getCustomerFavorites(customerId) {
-  await delay();
-
-  return findMany(
-    "favorites",
-    (favorite) => favorite.customerId === customerId,
-  ).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  return getCurrentCustomerFavorites(customerId);
 }
 
 /**
@@ -34,29 +55,17 @@ export async function getCustomerFavorites(customerId) {
  */
 export async function getCurrentCustomerFavorites() {
   await delay();
-
-  const customer = getCurrentUser();
-
-  if (!customer || customer.role !== "customer") {
-    throw new Error("Only customers can have favorite workers.");
-  }
-
-  return findMany(
-    "favorites",
-    (favorite) => favorite.customerId === customer.id,
-  ).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  requireCustomer();
+  const response = await apiGet("/customer/favorites");
+  return (response?.favorites || []).map(normalizeFavorite);
 }
 
 /**
  * Returns the ids of every worker favorited by a customer.
  */
 export async function getFavoriteWorkerIds(customerId) {
-  await delay();
-
-  return findMany(
-    "favorites",
-    (favorite) => favorite.customerId === customerId,
-  ).map((favorite) => favorite.workerId);
+  const favorites = await getCustomerFavorites(customerId);
+  return favorites.map((favorite) => favorite.workerId);
 }
 
 /**
@@ -64,12 +73,11 @@ export async function getFavoriteWorkerIds(customerId) {
  */
 export async function isFavorite(customerId, workerId) {
   await delay();
-
-  return !!findOne(
-    "favorites",
-    (favorite) =>
-      favorite.customerId === customerId && favorite.workerId === workerId,
-  );
+  requireCustomer();
+  const numericWorkerId = toNumericWorkerId(workerId);
+  if (!numericWorkerId) return false;
+  const response = await apiGet(`/customer/favorites/${numericWorkerId}/status`);
+  return Boolean(response?.favorited);
 }
 
 /**
@@ -77,42 +85,11 @@ export async function isFavorite(customerId, workerId) {
  */
 export async function addFavorite(workerId) {
   await delay();
-
-  const customer = getCurrentUser();
-
-  if (!customer || customer.role !== "customer") {
-    throw new Error("Only customers can save favorite workers.");
-  }
-
-  const worker = findOne(
-    "users",
-    (user) => user.id === workerId && user.role === "worker",
-  );
-
-  if (!worker) {
-    throw new Error("Worker not found.");
-  }
-
-  const existing = findOne(
-    "favorites",
-    (favorite) =>
-      favorite.customerId === customer.id && favorite.workerId === workerId,
-  );
-
-  if (existing) {
-    return existing;
-  }
-
-  const favorite = {
-    id: crypto.randomUUID(),
-
-    customerId: customer.id,
-    workerId,
-
-    createdAt: new Date().toISOString(),
-  };
-
-  return insertOne("favorites", favorite);
+  requireCustomer();
+  const numericWorkerId = toNumericWorkerId(workerId);
+  if (!numericWorkerId) throw new Error("Invalid worker id.");
+  const response = await apiPost(`/customer/favorites/${numericWorkerId}`);
+  return normalizeFavorite(response?.favorite || response);
 }
 
 /**
@@ -120,18 +97,11 @@ export async function addFavorite(workerId) {
  */
 export async function removeFavorite(workerId) {
   await delay();
-
-  const customer = getCurrentUser();
-
-  if (!customer || customer.role !== "customer") {
-    throw new Error("Only customers can remove favorite workers.");
-  }
-
-  return deleteOne(
-    "favorites",
-    (favorite) =>
-      favorite.customerId === customer.id && favorite.workerId === workerId,
-  );
+  requireCustomer();
+  const numericWorkerId = toNumericWorkerId(workerId);
+  if (!numericWorkerId) throw new Error("Invalid worker id.");
+  await apiDelete(`/customer/favorites/${numericWorkerId}`);
+  return true;
 }
 
 /**
@@ -143,46 +113,14 @@ export async function removeFavorite(workerId) {
  */
 export async function toggleFavorite(workerId) {
   await delay();
-
-  const customer = getCurrentUser();
-
-  if (!customer || customer.role !== "customer") {
-    throw new Error("Only customers can manage favorite workers.");
-  }
-
-  const worker = findOne(
-    "users",
-    (user) => user.id === workerId && user.role === "worker",
-  );
-
-  if (!worker) {
-    throw new Error("Worker not found.");
-  }
-
-  const existing = findOne(
-    "favorites",
-    (favorite) =>
-      favorite.customerId === customer.id && favorite.workerId === workerId,
-  );
-
-  if (existing) {
-    deleteOne(
-      "favorites",
-      (favorite) =>
-        favorite.customerId === customer.id && favorite.workerId === workerId,
-    );
-
+  requireCustomer();
+  const numericWorkerId = toNumericWorkerId(workerId);
+  if (!numericWorkerId) throw new Error("Invalid worker id.");
+  const status = await apiGet(`/customer/favorites/${numericWorkerId}/status`);
+  if (status?.favorited) {
+    await apiDelete(`/customer/favorites/${numericWorkerId}`);
     return false;
   }
-
-  insertOne("favorites", {
-    id: crypto.randomUUID(),
-
-    customerId: customer.id,
-    workerId,
-
-    createdAt: new Date().toISOString(),
-  });
-
+  await apiPost(`/customer/favorites/${numericWorkerId}`);
   return true;
 }

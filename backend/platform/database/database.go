@@ -91,6 +91,14 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			PRIMARY KEY (worker_id, category_id)
 		);
 
+		CREATE TABLE IF NOT EXISTS customer_favorites (
+			id BIGSERIAL PRIMARY KEY,
+			customer_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			worker_id BIGINT NOT NULL REFERENCES worker_profiles(id) ON DELETE CASCADE,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			UNIQUE (customer_id, worker_id)
+		);
+
 			CREATE TABLE IF NOT EXISTS worker_verification_requests (
 				id BIGSERIAL PRIMARY KEY,
 				worker_id BIGINT NOT NULL REFERENCES worker_profiles(id) ON DELETE CASCADE,
@@ -336,6 +344,8 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		CREATE INDEX IF NOT EXISTS idx_service_requests_customer_id ON service_requests(customer_id);
 		CREATE INDEX IF NOT EXISTS idx_service_requests_worker_id ON service_requests(worker_id);
 		CREATE INDEX IF NOT EXISTS idx_service_requests_status ON service_requests(status);
+		CREATE INDEX IF NOT EXISTS idx_customer_favorites_customer_id ON customer_favorites(customer_id);
+		CREATE INDEX IF NOT EXISTS idx_customer_favorites_worker_id ON customer_favorites(worker_id);
 			CREATE INDEX IF NOT EXISTS idx_worker_verification_requests_worker_id ON worker_verification_requests(worker_id);
 			CREATE INDEX IF NOT EXISTS idx_worker_verification_requests_status ON worker_verification_requests(status);
 			CREATE INDEX IF NOT EXISTS idx_worker_documents_worker_id ON worker_documents(worker_id);

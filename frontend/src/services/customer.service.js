@@ -3,6 +3,7 @@ import { delay } from "@/lib/delay";
 import { apiGet, apiPatch } from "./api.service";
 import { getCurrentUser, setCurrentUser } from "./auth.service";
 import { getWorkerById } from "./worker.service";
+import { getCurrentCustomerFavorites } from "./favorite.service";
 import { useAuthStore } from "@/store/authStore";
 
 const PLACEHOLDER_AVATAR = "/api/placeholder/150/150";
@@ -327,31 +328,5 @@ export async function getCustomerProfileData() {
 }
 
 export async function getCustomerFavorites() {
-  await delay();
-
-  const customer = await getCurrentCustomer();
-
-  if (!customer) {
-    return [];
-  }
-
-  const requests = await getCustomerRequests();
-  const workerIds = [...new Set(requests.map((request) => request.workerId).filter(Boolean))];
-  const favorites = [];
-
-  for (const workerId of workerIds.slice(0, 3)) {
-    const worker = await getWorkerById(workerId);
-
-    if (worker) {
-      favorites.push({
-        id: worker.id,
-        name: worker.fullName,
-        profession: worker.primarySkill || "Skilled Professional",
-        rating: worker.rating || 0,
-        avatar: worker.profileImage || PLACEHOLDER_AVATAR,
-      });
-    }
-  }
-
-  return favorites;
+  return getCurrentCustomerFavorites();
 }

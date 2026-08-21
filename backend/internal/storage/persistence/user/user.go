@@ -349,6 +349,103 @@ func (s *sqlStore) GetWorkerReviews(ctx context.Context, workerID int64) (db.Wor
 	return db.WorkerReviewResponse{Rating: rating, Reviews: reviews}, rows.Err()
 }
 
+const favoriteSelect = `
+	SELECT f.id, f.customer_id, f.worker_id, u.full_name, wp.headline, wp.city,
+	       u.profile_image, COALESCE(category.name, ''), wp.rating_average, wp.rating_count,
+	       wp.is_verified, f.created_at
+	FROM customer_favorites f
+	INNER JOIN worker_profiles wp ON wp.id = f.worker_id
+	INNER JOIN users u ON u.id = wp.user_id
+	LEFT JOIN LATERAL (
+		SELECT sc.name
+		FROM worker_skills ws
+		INNER JOIN service_categories sc ON sc.id = ws.category_id
+		WHERE ws.worker_id = wp.id
+		ORDER BY sc.name ASC
+		LIMIT 1
+	) category ON TRUE
+`
+
+func scanFavorite(scanner interface{ Scan(...any) error }) (db.Favorite, error) {
+	var favorite db.Favorite
+	err := scanner.Scan(
+		&favorite.ID,
+		&favorite.CustomerID,
+		&favorite.WorkerID,
+		&favorite.FullName,
+		&favorite.Headline,
+		&favorite.City,
+		&favorite.ProfileImage,
+		&favorite.PrimaryCategoryName,
+		&favorite.RatingAverage,
+		&favorite.RatingCount,
+		&favorite.IsVerified,
+		&favorite.CreatedAt,
+	)
+	return favorite, err
+}
+
+func (s *sqlStore) ListCustomerFavorites(ctx context.Context, customerID int64) ([]db.Favorite, error) {
+	rows, err := s.db.QueryContext(ctx, favoriteSelect+` WHERE f.customer_id = $1 ORDER BY f.created_at DESC`, customerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	favorites := make([]db.Favorite, 0)
+	for rows.Next() {
+		favorite, err := scanFavorite(rows)
+		if err != nil {
+			return nil, err
+		}
+		favorites = append(favorites, favorite)
+	}
+	return favorites, rows.Err()
+}
+
+func (s *sqlStore) GetCustomerFavorite(ctx context.Context, customerID, workerID int64) (db.Favorite, error) {
+	return scanFavorite(s.db.QueryRowContext(ctx, favoriteSelect+` WHERE f.customer_id = $1 AND f.worker_id = $2`, customerID, workerID))
+}
+
+func (s *sqlStore) AddCustomerFavorite(ctx context.Context, customerID, workerID int64) (db.Favorite, error) {
+	result, err := s.db.ExecContext(ctx, `
+		INSERT INTO customer_favorites (customer_id, worker_id)
+		SELECT $1, id FROM worker_profiles WHERE id = $2
+		ON CONFLICT (customer_id, worker_id) DO NOTHING
+	`, customerID, workerID)
+	if err != nil {
+		return db.Favorite{}, err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return db.Favorite{}, err
+	}
+	if rows == 0 {
+		if _, err := s.GetCustomerFavorite(ctx, customerID, workerID); errors.Is(err, sql.ErrNoRows) {
+			return db.Favorite{}, sql.ErrNoRows
+		}
+	}
+	return s.GetCustomerFavorite(ctx, customerID, workerID)
+}
+
+func (s *sqlStore) RemoveCustomerFavorite(ctx context.Context, customerID, workerID int64) error {
+	result, err := s.db.ExecContext(ctx, `
+		DELETE FROM customer_favorites
+		WHERE customer_id = $1 AND worker_id = $2
+	`, customerID, workerID)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 func (s *sqlStore) ListPortfolioItems(ctx context.Context, workerID int64) ([]db.PortfolioItem, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT p.id, p.worker_id,

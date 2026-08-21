@@ -57,6 +57,7 @@ export default function WorkerProfilePage() {
   const [profile, setProfile] = useState(null);
 
   const [favoriteIds, setFavoriteIds] = useState(new Set());
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
 
   const [reviewData, setReviewData] = useState({
     rating: {
@@ -120,6 +121,7 @@ export default function WorkerProfilePage() {
 
   async function handleFavoriteToggle() {
     try {
+      setFavoriteLoading(true);
       const favorited = await toggleFavorite(workerId);
 
       setFavoriteIds((current) => {
@@ -134,7 +136,9 @@ export default function WorkerProfilePage() {
         return next;
       });
     } catch (err) {
-      console.error(err);
+      setError(err.message || "Unable to update favorites right now.");
+    } finally {
+      setFavoriteLoading(false);
     }
   }
 
@@ -249,6 +253,7 @@ export default function WorkerProfilePage() {
               <WorkerProfileHeader
                 worker={worker}
                 onFavoriteToggle={handleFavoriteToggle}
+                favoriteLoading={favoriteLoading}
               />
 
               <WorkerAbout worker={worker} />

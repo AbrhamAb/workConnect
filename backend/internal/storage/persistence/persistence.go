@@ -14,6 +14,10 @@ type Store interface {
 	ListWorkers(ctx context.Context, category, city, qTerm, sort string) ([]db.WorkerCard, error)
 	GetWorkerDetails(ctx context.Context, workerID int64) (db.WorkerDetails, error)
 	GetWorkerReviews(ctx context.Context, workerID int64) (db.WorkerReviewResponse, error)
+	ListCustomerFavorites(ctx context.Context, customerID int64) ([]db.Favorite, error)
+	GetCustomerFavorite(ctx context.Context, customerID, workerID int64) (db.Favorite, error)
+	AddCustomerFavorite(ctx context.Context, customerID, workerID int64) (db.Favorite, error)
+	RemoveCustomerFavorite(ctx context.Context, customerID, workerID int64) error
 	ListPortfolioItems(ctx context.Context, workerID int64) ([]db.PortfolioItem, error)
 	CreatePortfolioItem(ctx context.Context, workerID int64, item db.PortfolioItem) (db.PortfolioItem, error)
 	UpdatePortfolioItem(ctx context.Context, workerID, itemID int64, item db.PortfolioItem) (db.PortfolioItem, error)
