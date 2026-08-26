@@ -38,6 +38,19 @@ type User struct {
 	UpdatedAt    time.Time `json:"updatedAt"`
 }
 
+type WorkerRegistration struct {
+	FullName        string
+	Email           string
+	Phone           string
+	PasswordHash    string
+	ProfileImage    string
+	Headline        string
+	Bio             string
+	City            string
+	ExperienceYears int
+	Skills          []string
+}
+
 type WorkerProfile struct {
 	ID                 int64     `json:"id"`
 	UserID             int64     `json:"userId"`
@@ -69,6 +82,7 @@ type WorkerCard struct {
 	WorkerID            int64   `json:"workerId"`
 	UserID              int64   `json:"userId"`
 	FullName            string  `json:"fullName"`
+	ProfileImage        string  `json:"profileImage"`
 	Headline            string  `json:"headline"`
 	City                string  `json:"city"`
 	HourlyRateETB       float64 `json:"hourlyRateEtb"`
@@ -159,6 +173,13 @@ type ServiceRequestView struct {
 	WorkerName    string `json:"workerName"`
 	CustomerName  string `json:"customerName"`
 	CustomerPhone string `json:"customerPhone"`
+}
+
+type RequestPhoto struct {
+	ID        int64     `json:"id"`
+	RequestID int64     `json:"requestId"`
+	PhotoURL  string    `json:"photoUrl"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 type Payment struct {

@@ -1,11 +1,21 @@
 import { delay } from "@/lib/delay";
 
 import { apiGet, apiPatch, apiPost } from "./api.service";
+import { apiDelete } from "./api.service";
 import { getCurrentUser } from "./auth.service";
 import { getWorkerById } from "./worker.service";
 import { findMany, findOne, insertOne, updateOne, deleteOne } from "./storage.service";
 
 const PLACEHOLDER_AVATAR = "/api/placeholder/150/150";
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 function toNumericId(value, prefix) {
   if (value === null || value === undefined || value === "") {
@@ -193,7 +203,16 @@ export async function createRequest(data) {
     budgetEtb: Number(data.budget) || 0,
   });
 
-  return normalizeRequest(response?.request || response);
+  const request = normalizeRequest(response?.request || response);
+  const requestId = request?.requestId;
+  if (requestId && Array.isArray(data.photos)) {
+    for (const file of data.photos) {
+      const photoUrl = await fileToBase64(file);
+      await apiPost(`/customer/requests/${requestId}/photos`, { photoUrl });
+    }
+  }
+
+  return request;
 }
 
 export async function updateRequest(requestId, updates) {
@@ -222,9 +241,11 @@ export async function getCustomerRequestDetails(requestId) {
 
   const response = await apiGet(`/customer/requests/${numericRequestId}`);
 
+  const photosResponse = await apiGet(`/customer/requests/${numericRequestId}/photos`);
   return {
     request: normalizeRequest(response?.request || response),
     worker: normalizeWorker(response?.worker),
+    photos: photosResponse?.photos || [],
   };
 }
 
@@ -239,10 +260,21 @@ export async function getWorkerRequestDetails(requestId) {
 
   const response = await apiGet(`/worker/requests/${numericRequestId}`);
 
+  const photosResponse = await apiGet(`/worker/requests/${numericRequestId}/photos`);
   return {
     request: normalizeRequest(response?.request || response),
     customer: normalizeCustomer(response?.customer),
+    photos: photosResponse?.photos || [],
   };
+}
+
+export async function deleteRequestPhoto(requestId, photoId) {
+  const numericRequestId = toNumericId(requestId, "req");
+  const numericPhotoId = toNumericId(photoId, "photo");
+  if (!numericRequestId || !numericPhotoId) {
+    throw new Error("Invalid request or photo id.");
+  }
+  await apiDelete(`/customer/requests/${numericRequestId}/photos/${numericPhotoId}`);
 }
 
 async function updateWorkerRequestStatus(requestId, path, body) {

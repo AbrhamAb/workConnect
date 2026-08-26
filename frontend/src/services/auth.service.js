@@ -91,13 +91,27 @@ function normalizeSession(data) {
   return normalized;
 }
 
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 async function submitRegistration(role, data) {
+  const payload = { ...data, role };
+  delete payload.confirmPassword;
+  delete payload.profilePicture;
+
+  if (role === "worker" && typeof File !== "undefined" && data.profilePicture instanceof File) {
+    payload.profileImage = await fileToBase64(data.profilePicture);
+  }
+
   const response = await apiPost(
     "/auth/register",
-    {
-      ...data,
-      role,
-    },
+    payload,
     { auth: false },
   );
 

@@ -46,6 +46,87 @@ func (s *sqlStore) CreateUser(ctx context.Context, fullName, email, phone, role,
 	return user, err
 }
 
+func (s *sqlStore) RegisterWorker(ctx context.Context, registration db.WorkerRegistration) (db.User, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return db.User{}, err
+	}
+	defer tx.Rollback()
+
+	var user db.User
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO users (full_name, email, phone, role, profile_image, password_hash)
+		VALUES ($1, $2, $3, 'worker', $4, $5)
+		RETURNING id, full_name, email, phone, role, profile_image, is_active, password_hash, created_at, updated_at
+	`, registration.FullName, registration.Email, registration.Phone, registration.ProfileImage, registration.PasswordHash).Scan(
+		&user.ID, &user.FullName, &user.Email, &user.Phone, &user.Role, &user.ProfileImage,
+		&user.IsActive, &user.PasswordHash, &user.CreatedAt, &user.UpdatedAt,
+	)
+	if err != nil {
+		return db.User{}, err
+	}
+
+	var workerID int64
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO worker_profiles (
+			user_id, headline, bio, city, profile_picture_url,
+			experience_years, availability_status, verification_status
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, 'available', 'not_submitted')
+		RETURNING id
+	`, user.ID, registration.Headline, registration.Bio, registration.City, registration.ProfileImage, registration.ExperienceYears).Scan(&workerID)
+	if err != nil {
+		return db.User{}, err
+	}
+
+	seen := make(map[string]struct{}, len(registration.Skills))
+	for _, rawSkill := range registration.Skills {
+		skill := normalizeRegistrationSkill(rawSkill)
+		if skill == "" {
+			continue
+		}
+		if _, exists := seen[skill]; exists {
+			continue
+		}
+		seen[skill] = struct{}{}
+
+		var categoryID int64
+		if err = tx.QueryRowContext(ctx, `SELECT id FROM service_categories WHERE LOWER(name) = LOWER($1)`, skill).Scan(&categoryID); err != nil {
+			if err == sql.ErrNoRows {
+				return db.User{}, fmt.Errorf("unsupported worker skill: %s", rawSkill)
+			}
+			return db.User{}, err
+		}
+		if _, err = tx.ExecContext(ctx, `INSERT INTO worker_skills (worker_id, category_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, workerID, categoryID); err != nil {
+			return db.User{}, err
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return db.User{}, err
+	}
+	return user, nil
+}
+
+func normalizeRegistrationSkill(skill string) string {
+	switch strings.ToLower(strings.TrimSpace(skill)) {
+	case "plumbing":
+		return "Plumber"
+	case "electrical":
+		return "Electrician"
+	case "carpentry":
+		return "Carpenter"
+	case "painting":
+		return "Painter"
+	case "cleaning":
+		return "Cleaner"
+	case "welding":
+		return "Welder"
+	default:
+		return strings.TrimSpace(skill)
+	}
+}
+
 func (s *sqlStore) GetUserByEmail(ctx context.Context, email string) (db.User, error) {
 	query := `
 		SELECT id, full_name, email, phone, role, profile_image, is_active, password_hash, created_at, updated_at
@@ -103,15 +184,19 @@ func (s *sqlStore) GetUserByID(ctx context.Context, userID int64) (db.User, erro
 }
 
 func (s *sqlStore) UpdateUserProfileImage(ctx context.Context, userID int64, profileImage string) (db.User, error) {
-	q := `
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return db.User{}, err
+	}
+	defer tx.Rollback()
+
+	var user db.User
+	err = tx.QueryRowContext(ctx, `
 		UPDATE users
 		SET profile_image = $1, updated_at = NOW()
 		WHERE id = $2
 		RETURNING id, full_name, email, phone, role, profile_image, is_active, password_hash, created_at, updated_at
-	`
-
-	var user db.User
-	err := s.db.QueryRowContext(ctx, q, profileImage, userID).Scan(
+	`, profileImage, userID).Scan(
 		&user.ID,
 		&user.FullName,
 		&user.Email,
@@ -123,6 +208,19 @@ func (s *sqlStore) UpdateUserProfileImage(ctx context.Context, userID int64, pro
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
+	if err != nil {
+		return db.User{}, err
+	}
+	if _, err = tx.ExecContext(ctx, `
+		UPDATE worker_profiles
+		SET profile_picture_url = $1, updated_at = NOW()
+		WHERE user_id = $2
+	`, profileImage, userID); err != nil {
+		return db.User{}, err
+	}
+	if err = tx.Commit(); err != nil {
+		return db.User{}, err
+	}
 	return user, err
 }
 
@@ -142,6 +240,7 @@ func (s *sqlStore) ListWorkers(ctx context.Context, category, city, qTerm, sort 
 			wp.id,
 			wp.user_id,
 			u.full_name,
+			u.profile_image,
 			wp.headline,
 			wp.city,
 			wp.hourly_rate_etb,
@@ -203,6 +302,7 @@ func (s *sqlStore) ListWorkers(ctx context.Context, category, city, qTerm, sort 
 			&worker.WorkerID,
 			&worker.UserID,
 			&worker.FullName,
+			&worker.ProfileImage,
 			&worker.Headline,
 			&worker.City,
 			&worker.HourlyRateETB,
@@ -227,6 +327,7 @@ func (s *sqlStore) GetWorkerDetails(ctx context.Context, workerID int64) (db.Wor
 			wp.id,
 			wp.user_id,
 			u.full_name,
+			u.profile_image,
 			wp.headline,
 			wp.city,
 			wp.hourly_rate_etb,
@@ -252,6 +353,7 @@ func (s *sqlStore) GetWorkerDetails(ctx context.Context, workerID int64) (db.Wor
 		&details.Worker.WorkerID,
 		&details.Worker.UserID,
 		&details.Worker.FullName,
+		&details.Worker.ProfileImage,
 		&details.Worker.Headline,
 		&details.Worker.City,
 		&details.Worker.HourlyRateETB,
@@ -762,6 +864,57 @@ func (s *sqlStore) GetServiceRequestViewByID(ctx context.Context, requestID int6
 		&item.CustomerPhone,
 	)
 	return item, err
+}
+
+func (s *sqlStore) ListRequestPhotos(ctx context.Context, requestID int64) ([]db.RequestPhoto, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, request_id, photo_url, created_at
+		FROM request_photos
+		WHERE request_id = $1
+		ORDER BY created_at ASC, id ASC
+	`, requestID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	photos := make([]db.RequestPhoto, 0)
+	for rows.Next() {
+		var photo db.RequestPhoto
+		if err := rows.Scan(&photo.ID, &photo.RequestID, &photo.PhotoURL, &photo.CreatedAt); err != nil {
+			return nil, err
+		}
+		photos = append(photos, photo)
+	}
+	return photos, rows.Err()
+}
+
+func (s *sqlStore) CreateRequestPhoto(ctx context.Context, requestID int64, photoURL string) (db.RequestPhoto, error) {
+	var photo db.RequestPhoto
+	err := s.db.QueryRowContext(ctx, `
+		INSERT INTO request_photos (request_id, photo_url)
+		SELECT id, $2 FROM service_requests WHERE id = $1
+		RETURNING id, request_id, photo_url, created_at
+	`, requestID, photoURL).Scan(&photo.ID, &photo.RequestID, &photo.PhotoURL, &photo.CreatedAt)
+	return photo, err
+}
+
+func (s *sqlStore) DeleteRequestPhoto(ctx context.Context, requestID, photoID int64) error {
+	result, err := s.db.ExecContext(ctx, `
+		DELETE FROM request_photos
+		WHERE id = $1 AND request_id = $2
+	`, photoID, requestID)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 func (s *sqlStore) ListCustomerRequests(ctx context.Context, customerID int64) ([]db.ServiceRequestView, error) {
@@ -1311,6 +1464,7 @@ func (s *sqlStore) PendingWorkerVerifications(ctx context.Context) ([]db.WorkerC
 			wp.id,
 			wp.user_id,
 			u.full_name,
+			u.profile_image,
 			wp.headline,
 			wp.city,
 			wp.hourly_rate_etb,
@@ -1339,6 +1493,7 @@ func (s *sqlStore) PendingWorkerVerifications(ctx context.Context) ([]db.WorkerC
 			&worker.WorkerID,
 			&worker.UserID,
 			&worker.FullName,
+			&worker.ProfileImage,
 			&worker.Headline,
 			&worker.City,
 			&worker.HourlyRateETB,
@@ -1464,16 +1619,24 @@ func (s *sqlStore) SubmitVerificationRequest(ctx context.Context, workerID int64
 
 	// Insert new documents
 	for _, doc := range documents {
-		_, err = tx.ExecContext(ctx,
-			`INSERT INTO worker_documents (worker_id, document_type, file_url, file_name, mime_type, status)
-			 VALUES ($1, $2, $3, $4, $5, 'pending')
-			 ON CONFLICT (worker_id, document_type) DO UPDATE SET
-			 file_url = EXCLUDED.file_url,
-			 file_name = EXCLUDED.file_name,
-			 mime_type = EXCLUDED.mime_type,
-			 updated_at = NOW()`,
-			workerID, doc.DocumentType, doc.FileURL, doc.FileName, doc.MimeType,
-		)
+		result, err := tx.ExecContext(ctx, `
+			UPDATE worker_documents
+			SET file_url = $1, file_name = $2, mime_type = $3, status = 'pending', updated_at = NOW()
+			WHERE worker_id = $4 AND document_type = $5
+		`, doc.FileURL, doc.FileName, doc.MimeType, workerID, doc.DocumentType)
+		if err != nil {
+			return db.VerificationRequest{}, err
+		}
+		rows, err := result.RowsAffected()
+		if err != nil {
+			return db.VerificationRequest{}, err
+		}
+		if rows == 0 {
+			_, err = tx.ExecContext(ctx, `
+				INSERT INTO worker_documents (worker_id, document_type, file_url, file_name, mime_type, status)
+				VALUES ($1, $2, $3, $4, $5, 'pending')
+			`, workerID, doc.DocumentType, doc.FileURL, doc.FileName, doc.MimeType)
+		}
 		if err != nil {
 			return db.VerificationRequest{}, err
 		}
@@ -1481,21 +1644,51 @@ func (s *sqlStore) SubmitVerificationRequest(ctx context.Context, workerID int64
 
 	// Create or update verification request
 	var verReq db.VerificationRequest
-	err = tx.QueryRowContext(ctx,
-		`INSERT INTO worker_verification_requests (worker_id, status)
-		 VALUES ($1, 'pending')
-		 ON CONFLICT (worker_id) DO UPDATE SET
-		 status = 'pending',
-		 submitted_at = NOW(),
-		 updated_at = NOW()
-		 RETURNING id, worker_id, status, submitted_at, reviewed_at, reviewed_by, rejection_reason, created_at, updated_at`,
-		workerID,
-	).Scan(
-		&verReq.ID, &verReq.WorkerID, &verReq.Status, &verReq.SubmittedAt,
-		&verReq.ReviewedAt, &verReq.ReviewedBy, &verReq.RejectionReason,
-		&verReq.CreatedAt, &verReq.UpdatedAt,
-	)
+	result, err := tx.ExecContext(ctx, `
+		UPDATE worker_verification_requests
+		SET status = 'pending', submitted_at = NOW(), updated_at = NOW()
+		WHERE worker_id = $1
+	`, workerID)
 	if err != nil {
+		return db.VerificationRequest{}, err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return db.VerificationRequest{}, err
+	}
+	if rows == 0 {
+		err = tx.QueryRowContext(ctx, `
+			INSERT INTO worker_verification_requests (worker_id, status)
+			VALUES ($1, 'pending')
+			RETURNING id, worker_id, status, submitted_at, reviewed_at, reviewed_by, rejection_reason, created_at, updated_at
+		`, workerID).Scan(
+			&verReq.ID, &verReq.WorkerID, &verReq.Status, &verReq.SubmittedAt,
+			&verReq.ReviewedAt, &verReq.ReviewedBy, &verReq.RejectionReason,
+			&verReq.CreatedAt, &verReq.UpdatedAt,
+		)
+		if err != nil {
+			return db.VerificationRequest{}, err
+		}
+	} else {
+		err = tx.QueryRowContext(ctx, `
+			SELECT id, worker_id, status, submitted_at, reviewed_at, reviewed_by, rejection_reason, created_at, updated_at
+			FROM worker_verification_requests
+			WHERE worker_id = $1
+		`, workerID).Scan(
+			&verReq.ID, &verReq.WorkerID, &verReq.Status, &verReq.SubmittedAt,
+			&verReq.ReviewedAt, &verReq.ReviewedBy, &verReq.RejectionReason,
+			&verReq.CreatedAt, &verReq.UpdatedAt,
+		)
+		if err != nil {
+			return db.VerificationRequest{}, err
+		}
+	}
+
+	if _, err = tx.ExecContext(ctx, `
+		UPDATE worker_profiles
+		SET is_verified = FALSE, verification_status = 'pending', updated_at = NOW()
+		WHERE id = $1
+	`, workerID); err != nil {
 		return db.VerificationRequest{}, err
 	}
 
@@ -1504,6 +1697,56 @@ func (s *sqlStore) SubmitVerificationRequest(ctx context.Context, workerID int64
 	}
 
 	return verReq, nil
+}
+
+func (s *sqlStore) ReviewWorkerVerification(ctx context.Context, workerID, reviewerID int64, verified bool, rejectionReason string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	status := "rejected"
+	profileStatus := "rejected"
+	if verified {
+		status = "approved"
+		profileStatus = "approved"
+		rejectionReason = ""
+	}
+
+	result, err := tx.ExecContext(ctx, `
+		UPDATE worker_profiles
+		SET is_verified = $1, verification_status = $2, updated_at = NOW()
+		WHERE id = $3
+	`, verified, profileStatus, workerID)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+
+	result, err = tx.ExecContext(ctx, `
+		UPDATE worker_verification_requests
+		SET status = $1, reviewed_at = NOW(), reviewed_by = $2, rejection_reason = $3, updated_at = NOW()
+		WHERE worker_id = $4
+	`, status, reviewerID, rejectionReason, workerID)
+	if err != nil {
+		return err
+	}
+	rows, err = result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+
+	return tx.Commit()
 }
 
 func (s *sqlStore) GetVerificationStatus(ctx context.Context, workerID int64) (db.VerificationRequest, error) {

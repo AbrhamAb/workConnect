@@ -172,6 +172,13 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
 
+		CREATE TABLE IF NOT EXISTS request_photos (
+			id BIGSERIAL PRIMARY KEY,
+			request_id BIGINT NOT NULL REFERENCES service_requests(id) ON DELETE CASCADE,
+			photo_url TEXT NOT NULL,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
+
 		CREATE TABLE IF NOT EXISTS reviews (
 			id BIGSERIAL PRIMARY KEY,
 			request_id BIGINT UNIQUE NOT NULL REFERENCES service_requests(id) ON DELETE CASCADE,
@@ -344,6 +351,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		CREATE INDEX IF NOT EXISTS idx_service_requests_customer_id ON service_requests(customer_id);
 		CREATE INDEX IF NOT EXISTS idx_service_requests_worker_id ON service_requests(worker_id);
 		CREATE INDEX IF NOT EXISTS idx_service_requests_status ON service_requests(status);
+		CREATE INDEX IF NOT EXISTS idx_request_photos_request_id ON request_photos(request_id);
 		CREATE INDEX IF NOT EXISTS idx_customer_favorites_customer_id ON customer_favorites(customer_id);
 		CREATE INDEX IF NOT EXISTS idx_customer_favorites_worker_id ON customer_favorites(worker_id);
 			CREATE INDEX IF NOT EXISTS idx_worker_verification_requests_worker_id ON worker_verification_requests(worker_id);
@@ -354,6 +362,51 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			CREATE INDEX IF NOT EXISTS idx_message_conversations_worker ON message_conversations(worker_user_id);
 			CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
 			CREATE INDEX IF NOT EXISTS idx_messages_request_id ON messages(request_id);
+
+			DO $$
+			DECLARE
+				duplicate_workers BIGINT;
+				old_constraint TEXT;
+			BEGIN
+				SELECT COUNT(*) INTO duplicate_workers
+				FROM (
+					SELECT worker_id
+					FROM worker_verification_requests
+					GROUP BY worker_id
+					HAVING COUNT(*) > 1
+				) duplicates;
+				IF duplicate_workers > 0 THEN
+					RAISE EXCEPTION 'cannot add worker_verification_requests.worker_id uniqueness: duplicate worker records exist';
+				END IF;
+
+				SELECT conname INTO old_constraint
+				FROM pg_constraint
+				WHERE conrelid = 'service_requests'::regclass
+				  AND contype = 'c'
+				  AND pg_get_constraintdef(oid) ILIKE '%status%'
+				  AND conname <> 'service_requests_status_check'
+				LIMIT 1;
+				IF old_constraint IS NOT NULL THEN
+					EXECUTE format('ALTER TABLE service_requests DROP CONSTRAINT %I', old_constraint);
+				END IF;
+				ALTER TABLE service_requests DROP CONSTRAINT IF EXISTS service_requests_status_check;
+				ALTER TABLE service_requests
+					ADD CONSTRAINT service_requests_status_check
+					CHECK (status IN ('pending', 'accepted', 'in_progress', 'completed', 'confirmed', 'rejected', 'cancelled'));
+
+				IF NOT EXISTS (
+					SELECT 1 FROM pg_constraint
+					WHERE conrelid = 'worker_verification_requests'::regclass
+					  AND conname = 'worker_verification_requests_worker_id_key'
+				) THEN
+					ALTER TABLE worker_verification_requests
+						ADD CONSTRAINT worker_verification_requests_worker_id_key UNIQUE (worker_id);
+				END IF;
+
+				CREATE UNIQUE INDEX IF NOT EXISTS worker_verification_requests_worker_id_uidx
+					ON worker_verification_requests(worker_id);
+			END
+			$$;
 
 			ALTER TABLE users
 				ADD COLUMN IF NOT EXISTS profile_image TEXT NOT NULL DEFAULT '',
@@ -386,7 +439,8 @@ func migrate(ctx context.Context, db *sql.DB) error {
 				('Cleaner', 'cleaner', 'Residential and office cleaning'),
 				('Painter', 'painter', 'Interior and exterior painting'),
 				('Gardener', 'gardener', 'Garden care and landscaping'),
-				('Handyman', 'handyman', 'General repair and maintenance services')
+				('Handyman', 'handyman', 'General repair and maintenance services'),
+				('Welder', 'welder', 'Metal welding and fabrication services')
 		) AS seed(name, slug, description)
 		ON CONFLICT (slug) DO NOTHING;
 	`

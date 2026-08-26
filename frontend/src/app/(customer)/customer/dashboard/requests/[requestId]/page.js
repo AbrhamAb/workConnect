@@ -135,7 +135,7 @@ export default function RequestDetailsPage() {
         ? `${details.request.budget} ETB`
         : "Flexible",
       description: details.request.description || "No description provided.",
-      photos: details.request.photos || details.request.images || [],
+      photos: (details.photos || []).map((photo) => photo.photoUrl),
       timeline: [
         {
           title: "Request Submitted",

@@ -37,6 +37,15 @@ type p1StoreStub struct {
 	favoriteErr      error
 	favoriteCustomer int64
 	favoriteWorker   int64
+	photo            db.RequestPhoto
+	photos           []db.RequestPhoto
+	photoErr         error
+	photoRequestID   int64
+	photoID          int64
+	registration     db.WorkerRegistration
+	reviewWorkerID   int64
+	reviewerID       int64
+	reviewVerified   bool
 }
 
 func (s *p1StoreStub) GetServiceRequestViewByID(context.Context, int64) (db.ServiceRequestView, error) {
@@ -122,6 +131,33 @@ func (s *p1StoreStub) RemoveCustomerFavorite(_ context.Context, customerID, work
 	s.favoriteCustomer = customerID
 	s.favoriteWorker = workerID
 	return s.favoriteErr
+}
+
+func (s *p1StoreStub) ListRequestPhotos(context.Context, int64) ([]db.RequestPhoto, error) {
+	return s.photos, s.photoErr
+}
+
+func (s *p1StoreStub) CreateRequestPhoto(_ context.Context, requestID int64, _ string) (db.RequestPhoto, error) {
+	s.photoRequestID = requestID
+	return s.photo, s.photoErr
+}
+
+func (s *p1StoreStub) DeleteRequestPhoto(_ context.Context, requestID, photoID int64) error {
+	s.photoRequestID = requestID
+	s.photoID = photoID
+	return s.photoErr
+}
+
+func (s *p1StoreStub) RegisterWorker(_ context.Context, registration db.WorkerRegistration) (db.User, error) {
+	s.registration = registration
+	return db.User{ID: 41, FullName: registration.FullName, Role: db.RoleWorker}, nil
+}
+
+func (s *p1StoreStub) ReviewWorkerVerification(_ context.Context, workerID, reviewerID int64, verified bool, _ string) error {
+	s.reviewWorkerID = workerID
+	s.reviewerID = reviewerID
+	s.reviewVerified = verified
+	return nil
 }
 
 func TestParseTokenRejectsInvalidAndExpiredTokens(t *testing.T) {
@@ -334,5 +370,64 @@ func TestFavoritesMissingRemovalMapsToNotFound(t *testing.T) {
 
 	if err := workConnect.RemoveCustomerFavorite(context.Background(), 10, 7); !errors.Is(err, apperrors.ErrNotFound) {
 		t.Fatalf("expected missing favorite to be not found, got %v", err)
+	}
+}
+
+func TestRequestPhotosUseRequestOwnershipContext(t *testing.T) {
+	store := &p1StoreStub{
+		photo:  db.RequestPhoto{ID: 22, RequestID: 9, PhotoURL: "data:image/png;base64,abc"},
+		photos: []db.RequestPhoto{{ID: 22, RequestID: 9}},
+	}
+	workConnect := NewWorkConnectModule(store, "test-secret")
+
+	photos, err := workConnect.ListRequestPhotos(context.Background(), 9)
+	if err != nil || len(photos) != 1 || photos[0].RequestID != 9 {
+		t.Fatalf("expected request photo retrieval, got photos=%+v err=%v", photos, err)
+	}
+
+	if _, err = workConnect.CreateRequestPhoto(context.Background(), 9, dto.RequestPhotoRequest{PhotoURL: "data:image/png;base64,abc"}); err != nil || store.photoRequestID != 9 {
+		t.Fatalf("expected photo creation for request, request=%d err=%v", store.photoRequestID, err)
+	}
+
+	if err = workConnect.DeleteRequestPhoto(context.Background(), 9, 22); err != nil || store.photoRequestID != 9 || store.photoID != 22 {
+		t.Fatalf("expected photo deletion for request, request=%d photo=%d err=%v", store.photoRequestID, store.photoID, err)
+	}
+}
+
+func TestRequestPhotoMissingDeleteMapsToNotFound(t *testing.T) {
+	store := &p1StoreStub{photoErr: sql.ErrNoRows}
+	workConnect := NewWorkConnectModule(store, "test-secret")
+
+	if err := workConnect.DeleteRequestPhoto(context.Background(), 9, 22); !errors.Is(err, apperrors.ErrNotFound) {
+		t.Fatalf("expected missing photo to be not found, got %v", err)
+	}
+}
+
+func TestWorkerRegistrationPassesProfileAndSkillsToAtomicStore(t *testing.T) {
+	store := &p1StoreStub{}
+	workConnect := NewWorkConnectModule(store, "test-secret")
+
+	_, user, err := workConnect.Register(context.Background(), dto.RegisterRequest{
+		FullName: "Worker Example", Email: "worker@example.com", Phone: "123456789", Role: "worker",
+		Password: "password123", PrimarySkill: "Plumber", Skills: []string{"Plumbing"},
+		Experience: "3 - 5 years", City: "Addis Ababa", Bio: "Experienced plumbing professional with field service history.",
+	})
+	if err != nil || user.Role != db.RoleWorker {
+		t.Fatalf("expected worker registration, user=%+v err=%v", user, err)
+	}
+	if store.registration.ExperienceYears != 3 || store.registration.City != "Addis Ababa" || len(store.registration.Skills) != 2 {
+		t.Fatalf("expected registration profile fields, got %+v", store.registration)
+	}
+}
+
+func TestWorkerVerificationReviewPassesAtomicDecision(t *testing.T) {
+	store := &p1StoreStub{}
+	workConnect := NewWorkConnectModule(store, "test-secret")
+
+	if err := workConnect.ReviewWorkerVerification(context.Background(), 7, 99, dto.ReviewWorkerRequest{Verified: true}); err != nil {
+		t.Fatal(err)
+	}
+	if store.reviewWorkerID != 7 || store.reviewerID != 99 || !store.reviewVerified {
+		t.Fatalf("expected approval context, worker=%d reviewer=%d verified=%v", store.reviewWorkerID, store.reviewerID, store.reviewVerified)
 	}
 }

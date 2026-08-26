@@ -34,6 +34,9 @@ type WorkConnectService interface {
 	DeletePortfolioItem(ctx context.Context, workerID, itemID int64) error
 	UpdateWorkerProfile(ctx context.Context, workerID int64, req dto.UpdateWorkerProfileRequest) (db.WorkerProfile, error)
 	GetServiceRequestByID(ctx context.Context, requestID int64) (db.ServiceRequestView, error)
+	ListRequestPhotos(ctx context.Context, requestID int64) ([]db.RequestPhoto, error)
+	CreateRequestPhoto(ctx context.Context, requestID int64, req dto.RequestPhotoRequest) (db.RequestPhoto, error)
+	DeleteRequestPhoto(ctx context.Context, requestID, photoID int64) error
 	CreateServiceRequest(ctx context.Context, customerID int64, req dto.CreateServiceRequest) (db.ServiceRequestView, error)
 	ListCustomerRequests(ctx context.Context, customerID int64) ([]db.ServiceRequestView, error)
 	ListWorkerRequests(ctx context.Context, workerUserID int64) ([]db.ServiceRequestView, error)
@@ -52,6 +55,7 @@ type WorkConnectService interface {
 	AdminDashboard(ctx context.Context) (db.AdminDashboard, error)
 	PendingWorkerVerifications(ctx context.Context) ([]db.WorkerCard, error)
 	VerifyWorker(ctx context.Context, workerID int64, verified bool) error
+	ReviewWorkerVerification(ctx context.Context, workerID, reviewerID int64, req dto.ReviewWorkerRequest) error
 	ListMessageConversations(ctx context.Context, userID int64) ([]db.MessageConversation, error)
 	ListMessagesByRequest(ctx context.Context, userID, requestID int64, query dto.ListMessagesQuery) ([]db.Message, error)
 	SendMessage(ctx context.Context, userID, requestID int64, req dto.SendMessageRequest) (db.Message, error)

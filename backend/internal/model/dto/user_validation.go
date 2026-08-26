@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"fmt"
 	"strings"
 	"task-management-backend/internal/model/db"
 
@@ -38,6 +39,22 @@ func (r RegisterRequest) Validate() error {
 			validation.Length(8, 100).Error("password must be at least 8 characters"),
 		),
 	)
+}
+
+func (r RegisterRequest) ValidateWorkerFields() error {
+	if strings.TrimSpace(r.PrimarySkill) == "" {
+		return fmt.Errorf("primary skill is required")
+	}
+	if strings.TrimSpace(r.Bio) == "" || len(strings.TrimSpace(r.Bio)) < 20 {
+		return fmt.Errorf("professional bio must be at least 20 characters")
+	}
+	if strings.TrimSpace(r.City) == "" {
+		return fmt.Errorf("city is required")
+	}
+	if strings.TrimSpace(r.Experience) == "" {
+		return fmt.Errorf("experience is required")
+	}
+	return nil
 }
 
 func (r UpdateProfileImageRequest) Validate() error {
@@ -88,6 +105,12 @@ func (r CreateServiceRequest) Validate() error {
 	)
 }
 
+func (r RequestPhotoRequest) Validate() error {
+	return validation.ValidateStruct(&r,
+		validation.Field(&r.PhotoURL, validation.Required, validation.Length(1, 5000000)),
+	)
+}
+
 func (r WorkerDecisionRequest) Validate() error {
 	return validation.ValidateStruct(&r,
 		validation.Field(&r.Decision, validation.Required, validation.In("accept", "reject")),
@@ -105,6 +128,13 @@ func (r SubmitReviewRequest) Validate() error {
 		validation.Field(&r.Rating, validation.Required, validation.Min(1), validation.Max(5)),
 		validation.Field(&r.Comment, validation.Length(0, 500)),
 	)
+}
+
+func (r ReviewWorkerRequest) Validate() error {
+	if !r.Verified && strings.TrimSpace(r.RejectionReason) == "" {
+		return fmt.Errorf("rejection reason is required")
+	}
+	return nil
 }
 
 func (r InitiatePaymentRequest) Validate() error {

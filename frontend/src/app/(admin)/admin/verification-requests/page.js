@@ -51,17 +51,28 @@ export default function VerificationRequestsPage() {
     };
   }, []);
 
-  async function approveWorker(workerId) {
+  async function reviewWorker(workerId, verified, rejectionReason = "") {
     try {
       setApprovingId(workerId);
       setError("");
-      await apiPatch(`/admin/workers/${workerId}/verify`);
+      await apiPatch(`/admin/workers/${workerId}/verify`, {
+        verified,
+        rejectionReason,
+      });
       setWorkers((current) => current.filter((worker) => worker.id !== workerId));
     } catch (err) {
       setError(err.message || "Unable to approve this worker.");
     } finally {
       setApprovingId(null);
     }
+  }
+
+  async function rejectWorker(workerId) {
+    const reason = window.prompt("Reason for rejection:");
+    if (!reason?.trim()) {
+      return;
+    }
+    await reviewWorker(workerId, false, reason.trim());
   }
 
   return (
@@ -100,14 +111,24 @@ export default function VerificationRequestsPage() {
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => approveWorker(workerId)}
-                    disabled={approvingId === workerId}
-                    className="rounded-lg bg-[#1A362D] px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {approvingId === workerId ? "Approving..." : "Approve"}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => reviewWorker(workerId, true)}
+                      disabled={approvingId === workerId}
+                      className="rounded-lg bg-[#1A362D] px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {approvingId === workerId ? "Saving..." : "Approve"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => rejectWorker(workerId)}
+                      disabled={approvingId === workerId}
+                      className="rounded-lg border border-red-200 px-4 py-2 font-semibold text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Reject
+                    </button>
+                  </div>
                 </div>
               </Card>
             );

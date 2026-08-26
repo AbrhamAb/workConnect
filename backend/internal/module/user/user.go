@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	stderrs "errors"
 	"fmt"
+	"strconv"
 	"strings"
 	apperrors "task-management-backend/internal/constant/errors"
 	"task-management-backend/internal/model/db"
@@ -50,18 +51,29 @@ func (m *WorkConnectModule) Register(ctx context.Context, req dto.RegisterReques
 		return "", db.User{}, err
 	}
 
-	user, err := m.store.CreateUser(ctx, req.FullName, strings.ToLower(req.Email), req.Phone, req.Role, string(hash))
+	var user db.User
+	if req.Role == db.RoleWorker {
+		if err := req.ValidateWorkerFields(); err != nil {
+			return "", db.User{}, err
+		}
+		experienceYears, err := registrationExperienceYears(req.Experience)
+		if err != nil {
+			return "", db.User{}, err
+		}
+		skills := append([]string{req.PrimarySkill}, req.Skills...)
+		user, err = m.store.RegisterWorker(ctx, db.WorkerRegistration{
+			FullName: req.FullName, Email: strings.ToLower(strings.TrimSpace(req.Email)), Phone: req.Phone,
+			PasswordHash: string(hash), ProfileImage: req.ProfileImage, Headline: req.PrimarySkill,
+			Bio: req.Bio, City: req.City, ExperienceYears: experienceYears, Skills: skills,
+		})
+	} else {
+		user, err = m.store.CreateUser(ctx, req.FullName, strings.ToLower(req.Email), req.Phone, req.Role, string(hash))
+	}
 	if err != nil {
 		if userpersistence.IsUniqueViolation(err) {
 			return "", db.User{}, apperrors.ErrUserAlreadyExists
 		}
 		return "", db.User{}, err
-	}
-
-	if user.Role == db.RoleWorker {
-		if err = m.store.CreateWorkerProfile(ctx, user.ID); err != nil {
-			return "", db.User{}, err
-		}
 	}
 
 	token, err := m.generateToken(user.ID, user.FullName, user.Role)
@@ -71,6 +83,26 @@ func (m *WorkConnectModule) Register(ctx context.Context, req dto.RegisterReques
 
 	user.PasswordHash = ""
 	return token, user, nil
+}
+
+func registrationExperienceYears(value string) (int, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "less than 1 year":
+		return 0, nil
+	case "1 - 2 years":
+		return 1, nil
+	case "3 - 5 years":
+		return 3, nil
+	case "5 - 10 years":
+		return 5, nil
+	case "10+ years":
+		return 10, nil
+	default:
+		if years, err := strconv.Atoi(strings.TrimSpace(value)); err == nil && years >= 0 {
+			return years, nil
+		}
+		return 0, fmt.Errorf("invalid experience value")
+	}
 }
 
 func (m *WorkConnectModule) Login(ctx context.Context, req dto.LoginRequest) (*dto.UserLoginResponse, error) { // login response should be pointer to avoid unnecessary copying and i have changed dto response type
@@ -350,6 +382,29 @@ func (m *WorkConnectModule) GetServiceRequestByID(ctx context.Context, requestID
 	return m.store.GetServiceRequestViewByID(ctx, requestID)
 }
 
+func (m *WorkConnectModule) ListRequestPhotos(ctx context.Context, requestID int64) ([]db.RequestPhoto, error) {
+	return m.store.ListRequestPhotos(ctx, requestID)
+}
+
+func (m *WorkConnectModule) CreateRequestPhoto(ctx context.Context, requestID int64, req dto.RequestPhotoRequest) (db.RequestPhoto, error) {
+	if err := req.Validate(); err != nil {
+		return db.RequestPhoto{}, err
+	}
+	photo, err := m.store.CreateRequestPhoto(ctx, requestID, req.PhotoURL)
+	if userpersistence.IsNotFound(err) {
+		return db.RequestPhoto{}, apperrors.ErrNotFound
+	}
+	return photo, err
+}
+
+func (m *WorkConnectModule) DeleteRequestPhoto(ctx context.Context, requestID, photoID int64) error {
+	err := m.store.DeleteRequestPhoto(ctx, requestID, photoID)
+	if userpersistence.IsNotFound(err) {
+		return apperrors.ErrNotFound
+	}
+	return err
+}
+
 func (m *WorkConnectModule) ListCustomerRequests(ctx context.Context, customerID int64) ([]db.ServiceRequestView, error) {
 	return m.store.ListCustomerRequests(ctx, customerID)
 }
@@ -492,6 +547,19 @@ func (m *WorkConnectModule) PendingWorkerVerifications(ctx context.Context) ([]d
 
 func (m *WorkConnectModule) VerifyWorker(ctx context.Context, workerID int64, verified bool) error {
 	if err := m.store.VerifyWorker(ctx, workerID, verified); err != nil {
+		if userpersistence.IsNotFound(err) {
+			return apperrors.ErrNotFound
+		}
+		return err
+	}
+	return nil
+}
+
+func (m *WorkConnectModule) ReviewWorkerVerification(ctx context.Context, workerID, reviewerID int64, req dto.ReviewWorkerRequest) error {
+	if err := req.Validate(); err != nil {
+		return err
+	}
+	if err := m.store.ReviewWorkerVerification(ctx, workerID, reviewerID, req.Verified, req.RejectionReason); err != nil {
 		if userpersistence.IsNotFound(err) {
 			return apperrors.ErrNotFound
 		}

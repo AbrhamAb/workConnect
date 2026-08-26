@@ -1,11 +1,22 @@
 package dto
 
 type RegisterRequest struct {
-	FullName string `json:"fullName"`
-	Email    string `json:"email"`
-	Phone    string `json:"phone"`
-	Role     string `json:"role"`
-	Password string `json:"password"`
+	FullName     string   `json:"fullName"`
+	Email        string   `json:"email"`
+	Phone        string   `json:"phone"`
+	Role         string   `json:"role"`
+	Password     string   `json:"password"`
+	PrimarySkill string   `json:"primarySkill"`
+	Skills       []string `json:"skills"`
+	Experience   string   `json:"experience"`
+	City         string   `json:"city"`
+	Bio          string   `json:"bio"`
+	ProfileImage string   `json:"profileImage"`
+}
+
+type ReviewWorkerRequest struct {
+	Verified        bool   `json:"verified"`
+	RejectionReason string `json:"rejectionReason"`
 }
 
 type LoginRequest struct {
@@ -35,6 +46,10 @@ type CreateServiceRequest struct {
 	LocationAddress string  `json:"locationAddress"`
 	PreferredAt     string  `json:"preferredAt"`
 	BudgetETB       float64 `json:"budgetEtb"`
+}
+
+type RequestPhotoRequest struct {
+	PhotoURL string `json:"photoUrl"`
 }
 
 type WorkerDecisionRequest struct {

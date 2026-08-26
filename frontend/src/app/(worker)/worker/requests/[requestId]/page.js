@@ -39,7 +39,10 @@ export default function WorkerRequestDetailsPage() {
 
       const requestReview = await getReviewByRequest(data.request.id);
 
-      setRequest(data.request);
+      setRequest({
+        ...data.request,
+        photos: (data.photos || []).map((photo) => photo.photoUrl),
+      });
       setCustomer(data.customer);
       setReview(requestReview);
     } catch (err) {
@@ -72,7 +75,10 @@ export default function WorkerRequestDetailsPage() {
 
         if (cancelled) return;
 
-        setRequest(data.request);
+        setRequest({
+          ...data.request,
+          photos: (data.photos || []).map((photo) => photo.photoUrl),
+        });
         setCustomer(data.customer);
         setReview(requestReview);
       } catch (err) {

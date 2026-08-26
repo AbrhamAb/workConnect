@@ -474,6 +474,128 @@ func (h *Handler) GetCustomerRequest(w nethttp.ResponseWriter, r *nethttp.Reques
 	response.SendSuccessResponse(w, r, nethttp.StatusOK, "request fetched", map[string]any{"request": request, "worker": worker})
 }
 
+func (h *Handler) ListCustomerRequestPhotos(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	requestID, err := parseIDParam(r, "requestID")
+	if err != nil {
+		response.SendErrorResponse(w, r, stderrs.New("invalid request id"))
+		return
+	}
+	request, err := h.Module().WorkConnect.GetServiceRequestByID(r.Context(), requestID)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	if request.CustomerID != principal.UserID {
+		response.SendErrorResponse(w, r, apperrors.ErrForbidden)
+		return
+	}
+	photos, err := h.Module().WorkConnect.ListRequestPhotos(r.Context(), requestID)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	response.SendSuccessResponse(w, r, nethttp.StatusOK, "request photos fetched", map[string]any{"photos": photos})
+}
+
+func (h *Handler) CreateCustomerRequestPhoto(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	requestID, err := parseIDParam(r, "requestID")
+	if err != nil {
+		response.SendErrorResponse(w, r, stderrs.New("invalid request id"))
+		return
+	}
+	request, err := h.Module().WorkConnect.GetServiceRequestByID(r.Context(), requestID)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	if request.CustomerID != principal.UserID {
+		response.SendErrorResponse(w, r, apperrors.ErrForbidden)
+		return
+	}
+	var req dto.RequestPhotoRequest
+	if err := decodeAndValidate(r, &req); err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	photo, err := h.Module().WorkConnect.CreateRequestPhoto(r.Context(), requestID, req)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	response.SendSuccessResponse(w, r, nethttp.StatusCreated, "request photo created", map[string]any{"photo": photo})
+}
+
+func (h *Handler) DeleteCustomerRequestPhoto(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	requestID, err := parseIDParam(r, "requestID")
+	if err != nil {
+		response.SendErrorResponse(w, r, stderrs.New("invalid request id"))
+		return
+	}
+	photoID, err := parseIDParam(r, "photoID")
+	if err != nil {
+		response.SendErrorResponse(w, r, stderrs.New("invalid photo id"))
+		return
+	}
+	request, err := h.Module().WorkConnect.GetServiceRequestByID(r.Context(), requestID)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	if request.CustomerID != principal.UserID {
+		response.SendErrorResponse(w, r, apperrors.ErrForbidden)
+		return
+	}
+	if err := h.Module().WorkConnect.DeleteRequestPhoto(r.Context(), requestID, photoID); err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	response.SendSuccessResponse(w, r, nethttp.StatusNoContent, "request photo deleted", nil)
+}
+
+func (h *Handler) ListWorkerRequestPhotos(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	requestID, err := parseIDParam(r, "requestID")
+	if err != nil {
+		response.SendErrorResponse(w, r, stderrs.New("invalid request id"))
+		return
+	}
+	request, err := h.Module().WorkConnect.GetServiceRequestByID(r.Context(), requestID)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	workerProfileID, isWorker, err := h.Module().WorkConnect.GetWorkerProfileInfo(r.Context(), principal.UserID)
+	if err != nil || !isWorker || workerProfileID != request.WorkerID {
+		response.SendErrorResponse(w, r, apperrors.ErrForbidden)
+		return
+	}
+	photos, err := h.Module().WorkConnect.ListRequestPhotos(r.Context(), requestID)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	response.SendSuccessResponse(w, r, nethttp.StatusOK, "request photos fetched", map[string]any{"photos": photos})
+}
+
 func (h *Handler) SubmitCustomerReview(w nethttp.ResponseWriter, r *nethttp.Request) {
 	principal, err := h.requirePrincipal(r.Context())
 	if err != nil {
@@ -774,13 +896,23 @@ func (h *Handler) PendingWorkers(w nethttp.ResponseWriter, r *nethttp.Request) {
 }
 
 func (h *Handler) VerifyWorker(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
 	workerID, err := parseIDParam(r, "workerID")
 	if err != nil {
 		response.SendErrorResponse(w, r, stderrs.New("invalid worker id"))
 		return
 	}
 
-	if err = h.Module().WorkConnect.VerifyWorker(r.Context(), workerID, true); err != nil {
+	var req dto.ReviewWorkerRequest
+	if err = decodeAndValidate(r, &req); err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+	if err = h.Module().WorkConnect.ReviewWorkerVerification(r.Context(), workerID, principal.UserID, req); err != nil {
 		response.SendErrorResponse(w, r, err)
 		return
 	}

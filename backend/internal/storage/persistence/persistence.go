@@ -7,6 +7,7 @@ import (
 
 type Store interface {
 	CreateUser(ctx context.Context, fullName, email, phone, role, passwordHash string) (db.User, error)
+	RegisterWorker(ctx context.Context, registration db.WorkerRegistration) (db.User, error)
 	GetUserByEmail(ctx context.Context, email string) (db.User, error)
 	GetUserByID(ctx context.Context, userID int64) (db.User, error)
 	UpdateUserProfileImage(ctx context.Context, userID int64, profileImage string) (db.User, error)
@@ -25,6 +26,9 @@ type Store interface {
 	UpdateWorkerProfile(ctx context.Context, workerID int64, updates db.WorkerProfileUpdate) (db.WorkerProfile, error)
 	CreateServiceRequest(ctx context.Context, request db.ServiceRequest) (db.ServiceRequest, error)
 	GetServiceRequestViewByID(ctx context.Context, requestID int64) (db.ServiceRequestView, error)
+	ListRequestPhotos(ctx context.Context, requestID int64) ([]db.RequestPhoto, error)
+	CreateRequestPhoto(ctx context.Context, requestID int64, photoURL string) (db.RequestPhoto, error)
+	DeleteRequestPhoto(ctx context.Context, requestID, photoID int64) error
 	GetWorkerPrimaryCategoryID(ctx context.Context, workerID int64) (int64, error)
 	ListCustomerRequests(ctx context.Context, customerID int64) ([]db.ServiceRequestView, error)
 	ListWorkerRequests(ctx context.Context, workerUserID int64) ([]db.ServiceRequestView, error)
@@ -48,6 +52,7 @@ type Store interface {
 	AdminDashboard(ctx context.Context) (db.AdminDashboard, error)
 	PendingWorkerVerifications(ctx context.Context) ([]db.WorkerCard, error)
 	VerifyWorker(ctx context.Context, workerID int64, verified bool) error
+	ReviewWorkerVerification(ctx context.Context, workerID, reviewerID int64, verified bool, rejectionReason string) error
 	SubmitVerificationRequest(ctx context.Context, workerID int64, documents []db.WorkerDocument) (db.VerificationRequest, error)
 	GetVerificationStatus(ctx context.Context, workerID int64) (db.VerificationRequest, error)
 	WorkerProfileByUserID(ctx context.Context, userID int64) (int64, bool, error)

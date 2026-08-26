@@ -122,6 +122,24 @@ func RegisterWorkConnectRoutes(r chi.Router, handler rest.Handler) {
 				Middlewares: protected,
 			},
 			{
+				Method:      http.MethodGet,
+				Path:        "/requests/{requestID}/photos",
+				Handler:     handler.ListCustomerRequestPhotos,
+				Middlewares: protected,
+			},
+			{
+				Method:      http.MethodPost,
+				Path:        "/requests/{requestID}/photos",
+				Handler:     handler.CreateCustomerRequestPhoto,
+				Middlewares: protected,
+			},
+			{
+				Method:      http.MethodDelete,
+				Path:        "/requests/{requestID}/photos/{photoID}",
+				Handler:     handler.DeleteCustomerRequestPhoto,
+				Middlewares: protected,
+			},
+			{
 				Method:      http.MethodPatch,
 				Path:        "/requests/{requestID}/confirm",
 				Handler:     handler.ConfirmCustomerRequest,
@@ -171,6 +189,12 @@ func RegisterWorkConnectRoutes(r chi.Router, handler rest.Handler) {
 				Method:      http.MethodGet,
 				Path:        "/requests/{requestID}",
 				Handler:     handler.GetWorkerRequest,
+				Middlewares: protected,
+			},
+			{
+				Method:      http.MethodGet,
+				Path:        "/requests/{requestID}/photos",
+				Handler:     handler.ListWorkerRequestPhotos,
 				Middlewares: protected,
 			},
 			{
