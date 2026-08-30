@@ -120,6 +120,7 @@ export default function WorkersPage() {
 
     return filtered.map((worker) => ({
       id: worker.id,
+      workerId: worker.workerId,
       name: worker.fullName,
       skill: worker.primarySkill,
       location: worker.city,
@@ -206,7 +207,7 @@ export default function WorkersPage() {
         ) : (
           displayedWorkers.map((worker) => (
             <div
-              key={worker.id}
+              key={worker.workerId}
               className="rounded-2xl bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
             >
               <div className="flex items-start justify-between">
