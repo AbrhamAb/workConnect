@@ -3,11 +3,12 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"os"
 	"strings"
 	apperrors "task-management-backend/internal/constant/errors"
-	user "task-management-backend/internal/module/user"
 	"task-management-backend/internal/model/response"
 	"task-management-backend/internal/module"
+	user "task-management-backend/internal/module/user"
 )
 
 type ctxKey string
@@ -16,7 +17,12 @@ const principalCtxKey ctxKey = "principal"
 
 func CORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+		allowedOrigin := os.Getenv("CORS_ALLOWED_ORIGIN")
+		if allowedOrigin == "" {
+			allowedOrigin = "http://localhost:3000"
+		}
+
+		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 
