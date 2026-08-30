@@ -1,0 +1,1397 @@
+openapi: 3.0.0
+info:
+  title: WorkConnect API
+  description: Contract-first API specification for WorkConnect marketplace platform
+  version: 1.0.0
+  contact:
+    name: WorkConnect Team
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+  - url: http://{host}:{port}/api/v1
+    variables:
+      host:
+        default: localhost
+      port:
+        default: "8080"
+
+paths:
+  # ============================================================
+  # PUBLIC ENDPOINTS (NO AUTH)
+  # ============================================================
+  
+  /Healthcheck:
+    get:
+      operationId: healthCheck
+      tags:
+        - Health
+      summary: Service health check
+      responses:
+        "200":
+          description: Service is running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+              example:
+                status: 200
+                message: 🚀 workConnect service is running
+                data: null
+
+  /workers:
+    get:
+      operationId: listWorkers
+      tags:
+        - Workers
+      summary: List all workers with optional filters
+      parameters:
+        - name: category
+          in: query
+          description: Filter by service category
+          schema:
+            type: string
+        - name: city
+          in: query
+          description: Filter by city
+          schema:
+            type: string
+        - name: q
+          in: query
+          description: Search by name or skill
+          schema:
+            type: string
+        - name: sort
+          in: query
+          description: Sort order
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Workers list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkersListResponse"
+
+  /workers/{workerID}:
+    get:
+      operationId: getWorkerProfile
+      tags:
+        - Workers
+      summary: Get detailed worker profile
+      parameters:
+        - name: workerID
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Worker profile with details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkerDetailResponse"
+
+  # ============================================================
+  # AUTH ENDPOINTS
+  # ============================================================
+
+  /auth/register:
+    post:
+      operationId: register
+      tags:
+        - Auth
+      summary: Register new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags:
+        - Auth
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/me:
+    get:
+      operationId: getProfile
+      tags:
+        - Auth
+      summary: Get current user profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ============================================================
+  # CUSTOMER ENDPOINTS
+  # ============================================================
+
+  /customer/requests:
+    post:
+      operationId: createCustomerRequest
+      tags:
+        - Customer
+      summary: Create new service request
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServiceRequest"
+      responses:
+        "201":
+          description: Service request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRequestResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    get:
+      operationId: listCustomerRequests
+      tags:
+        - Customer
+      summary: List customer's service requests
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of customer's requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerRequestsListResponse"
+
+  /customer/requests/{requestID}:
+    get:
+      operationId: getCustomerRequest
+      tags:
+        - Customer
+      summary: Get specific customer request with worker details
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: requestID
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Request details with worker info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerRequestDetailResponse"
+
+  /customer/requests/{requestID}/confirm:
+    patch:
+      operationId: confirmCustomerRequest
+      tags:
+        - Customer
+      summary: Confirm worker for service request
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: requestID
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Request confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRequestResponse"
+
+  /customer/requests/{requestID}/cancel:
+    patch:
+      operationId: cancelCustomerRequest
+      tags:
+        - Customer
+      summary: Cancel service request
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: requestID
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Request cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRequestResponse"
+
+  /customer/requests/{requestID}/review:
+    post:
+      operationId: submitCustomerReview
+      tags:
+        - Customer
+      summary: Submit review for completed request
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: requestID
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitReviewRequest"
+      responses:
+        "201":
+          description: Review submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmptyResponse"
+
+  /customer/requests/{requestID}/payments/initiate:
+    post:
+      operationId: initiateCustomerPayment
+      tags:
+        - Customer
+      summary: Initiate payment for service request
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: requestID
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InitiatePaymentRequest"
+      responses:
+        "201":
+          description: Payment initiated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentResponse"
+
+  /customer/dashboard:
+    get:
+      operationId: customerDashboard
+      tags:
+        - Customer
+      summary: Get customer dashboard summary
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerDashboardResponse"
+
+  # ============================================================
+  # WORKER ENDPOINTS
+  # ============================================================
+
+  /worker/requests:
+    get:
+      operationId: listWorkerRequests
+      tags:
+        - Worker
+      summary: List requests for worker
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of worker's requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkerRequestsListResponse"
+
+  /worker/requests/{requestID}:
+    get:
+      operationId: getWorkerRequest
+      tags:
+        - Worker
+      summary: Get worker request with customer details
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: requestID
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Request details with customer info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkerRequestDetailResponse"
+
+  /worker/requests/{requestID}/start:
+    patch:
+      operationId: startWorkerRequest
+      tags:
+        - Worker
+      summary: Mark request as started
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: requestID
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Request started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRequestResponse"
+
+  /worker/requests/{requestID}/decision:
+    patch:
+      operationId: workerDecision
+      tags:
+        - Worker
+      summary: Accept or reject service request
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: requestID
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkerDecisionRequest"
+      responses:
+        "200":
+          description: Decision recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRequestResponse"
+
+  /worker/requests/{requestID}/complete:
+    patch:
+      operationId: completeWorkerRequest
+      tags:
+        - Worker
+      summary: Mark request as completed
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: requestID
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Request completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRequestResponse"
+
+  /worker/availability:
+    patch:
+      operationId: updateWorkerAvailability
+      tags:
+        - Worker
+      summary: Update worker availability status
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAvailabilityRequest"
+      responses:
+        "200":
+          description: Availability updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmptyResponse"
+
+  /worker/dashboard:
+    get:
+      operationId: workerDashboard
+      tags:
+        - Worker
+      summary: Get worker dashboard summary
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkerDashboardResponse"
+
+  # ============================================================
+  # MESSAGING ENDPOINTS
+  # ============================================================
+
+  /messages/conversations:
+    get:
+      operationId: listMessageConversations
+      tags:
+        - Messages
+      summary: List message conversations for user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationsListResponse"
+
+  /messages/requests/{requestID}:
+    get:
+      operationId: listMessagesByRequest
+      tags:
+        - Messages
+      summary: List messages for a specific request
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: requestID
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          description: Number of messages to fetch (default 50)
+          schema:
+            type: integer
+            default: 50
+        - name: beforeId
+          in: query
+          description: Fetch messages before this ID for pagination
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessagesListResponse"
+
+    post:
+      operationId: sendMessage
+      tags:
+        - Messages
+      summary: Send message in request conversation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: requestID
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessageRequest"
+      responses:
+        "201":
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # ============================================================
+  # ADMIN ENDPOINTS
+  # ============================================================
+
+  /admin/dashboard:
+    get:
+      operationId: adminDashboard
+      tags:
+        - Admin
+      summary: Get admin dashboard summary
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Admin dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDashboardResponse"
+
+  /admin/workers/pending-verification:
+    get:
+      operationId: pendingWorkerVerifications
+      tags:
+        - Admin
+      summary: List workers pending verification
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of pending workers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingWorkersResponse"
+
+  /admin/workers/{workerID}/verify:
+    patch:
+      operationId: verifyWorker
+      tags:
+        - Admin
+      summary: Verify worker account
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: workerID
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Worker verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmptyResponse"
+
+# ============================================================
+# COMPONENTS / SCHEMAS
+# ============================================================
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from login or register
+
+  schemas:
+    # Request DTOs
+    RegisterRequest:
+      type: object
+      required:
+        - fullName
+        - email
+        - phone
+        - role
+        - password
+      properties:
+        fullName:
+          type: string
+          description: User full name
+        email:
+          type: string
+          format: email
+          description: Email address
+        phone:
+          type: string
+          description: Phone number
+        role:
+          type: string
+          enum: [customer, worker, admin]
+          description: User role
+        password:
+          type: string
+          format: password
+          description: Account password
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    CreateServiceRequest:
+      type: object
+      required:
+        - workerId
+        - categoryId
+        - title
+        - description
+        - locationAddress
+        - preferredAt
+        - budgetEtb
+      properties:
+        workerId:
+          type: integer
+          format: int64
+          description: ID of worker for this request
+        categoryId:
+          type: integer
+          format: int64
+          description: ID of service category
+        title:
+          type: string
+          description: Request title
+        description:
+          type: string
+          description: Detailed description of work needed
+        locationAddress:
+          type: string
+          description: Physical location address
+        preferredAt:
+          type: string
+          format: date-time
+          description: Preferred date/time (ISO 8601)
+        budgetEtb:
+          type: number
+          format: double
+          description: Budget in Ethiopian Birr
+
+    WorkerDecisionRequest:
+      type: object
+      required:
+        - decision
+      properties:
+        decision:
+          type: string
+          enum: [accept, reject]
+          description: Accept or reject the request
+
+    UpdateAvailabilityRequest:
+      type: object
+      required:
+        - availabilityStatus
+      properties:
+        availabilityStatus:
+          type: string
+          enum: [available, busy]
+          description: Availability status
+
+    SubmitReviewRequest:
+      type: object
+      required:
+        - rating
+        - comment
+      properties:
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: Rating from 1 to 5
+        comment:
+          type: string
+          description: Review comment
+
+    InitiatePaymentRequest:
+      type: object
+      required:
+        - provider
+        - amountEtb
+      properties:
+        provider:
+          type: string
+          description: Payment provider (chapa, starpay, cash)
+        amountEtb:
+          type: number
+          format: double
+          description: Payment amount in ETB
+
+    SendMessageRequest:
+      type: object
+      required:
+        - body
+        - messageType
+      properties:
+        body:
+          type: string
+          description: Message content
+        messageType:
+          type: string
+          enum: [text]
+          description: Type of message
+
+    # Response Models
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        role:
+          type: string
+          enum: [customer, worker, admin]
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    WorkerProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        headline:
+          type: string
+        bio:
+          type: string
+        city:
+          type: string
+        experienceYears:
+          type: integer
+        hourlyRateEtb:
+          type: number
+          format: double
+        availabilityStatus:
+          type: string
+          enum: [available, busy]
+        isVerified:
+          type: boolean
+        ratingAverage:
+          type: number
+          format: double
+        ratingCount:
+          type: integer
+        completedJobs:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    WorkerCard:
+      type: object
+      properties:
+        workerId:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        fullName:
+          type: string
+        headline:
+          type: string
+        city:
+          type: string
+        hourlyRateEtb:
+          type: number
+          format: double
+        ratingAverage:
+          type: number
+          format: double
+        ratingCount:
+          type: integer
+        availabilityStatus:
+          type: string
+          enum: [available, busy]
+        isVerified:
+          type: boolean
+        completedJobs:
+          type: integer
+        primaryCategoryName:
+          type: string
+
+    WorkerDetails:
+      type: object
+      properties:
+        worker:
+          $ref: "#/components/schemas/WorkerCard"
+        bio:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        skills:
+          type: array
+          items:
+            type: string
+
+    ServiceRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        referenceCode:
+          type: string
+        customerId:
+          type: integer
+          format: int64
+        workerId:
+          type: integer
+          format: int64
+        categoryId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        description:
+          type: string
+        locationAddress:
+          type: string
+        preferredAt:
+          type: string
+          format: date-time
+          nullable: true
+        budgetEtb:
+          type: number
+          format: double
+        status:
+          type: string
+          enum: [pending, accepted, rejected, completed, cancelled]
+        workerDecisionAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ServiceRequestView:
+      allOf:
+        - $ref: "#/components/schemas/ServiceRequest"
+        - type: object
+          properties:
+            categoryName:
+              type: string
+            workerName:
+              type: string
+            customerName:
+              type: string
+            customerPhone:
+              type: string
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        requestId:
+          type: integer
+          format: int64
+        amountEtb:
+          type: number
+          format: double
+        currency:
+          type: string
+        provider:
+          type: string
+        providerRef:
+          type: string
+        status:
+          type: string
+          enum: [pending, paid, failed]
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    MessageConversation:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        requestId:
+          type: integer
+          format: int64
+        otherPartyUserId:
+          type: integer
+          format: int64
+        otherPartyName:
+          type: string
+        lastMessagePreview:
+          type: string
+        lastMessageAt:
+          type: string
+          format: date-time
+          nullable: true
+        unreadCount:
+          type: integer
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        conversationId:
+          type: integer
+          format: int64
+        requestId:
+          type: integer
+          format: int64
+        senderUserId:
+          type: integer
+          format: int64
+        senderName:
+          type: string
+        body:
+          type: string
+        messageType:
+          type: string
+          enum: [text]
+        createdAt:
+          type: string
+          format: date-time
+
+    CustomerDashboard:
+      type: object
+      properties:
+        totalRequests:
+          type: integer
+        pendingRequests:
+          type: integer
+        completedRequests:
+          type: integer
+
+    WorkerDashboard:
+      type: object
+      properties:
+        incomingPendingRequests:
+          type: integer
+        acceptedRequests:
+          type: integer
+        completedJobs:
+          type: integer
+        estimatedEarningsEtb:
+          type: number
+          format: double
+
+    AdminDashboard:
+      type: object
+      properties:
+        totalUsers:
+          type: integer
+        totalWorkers:
+          type: integer
+        pendingVerifications:
+          type: integer
+        totalRequests:
+          type: integer
+        openRequests:
+          type: integer
+
+    # Response Wrappers
+    SuccessResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+        meta:
+          type: object
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        error:
+          type: object
+          properties:
+            type:
+              type: string
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                type: object
+
+    EmptyResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        data:
+          nullable: true
+
+    # Specific Responses
+    AuthResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+            user:
+              $ref: "#/components/schemas/User"
+            workerProfileId:
+              type: integer
+              format: int64
+              nullable: true
+
+    ProfileResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            user:
+              $ref: "#/components/schemas/User"
+            workerProfileId:
+              type: integer
+              format: int64
+              nullable: true
+
+    WorkersListResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            workers:
+              type: array
+              items:
+                $ref: "#/components/schemas/WorkerCard"
+
+    WorkerDetailResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            worker:
+              $ref: "#/components/schemas/WorkerDetails"
+
+    ServiceRequestResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            request:
+              $ref: "#/components/schemas/ServiceRequest"
+
+    CustomerRequestsListResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            requests:
+              type: array
+              items:
+                $ref: "#/components/schemas/ServiceRequest"
+
+    CustomerRequestDetailResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            request:
+              $ref: "#/components/schemas/ServiceRequest"
+            worker:
+              $ref: "#/components/schemas/WorkerDetails"
+
+    CustomerDashboardResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            summary:
+              $ref: "#/components/schemas/CustomerDashboard"
+
+    WorkerRequestsListResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            requests:
+              type: array
+              items:
+                $ref: "#/components/schemas/ServiceRequest"
+
+    WorkerRequestDetailResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            request:
+              $ref: "#/components/schemas/ServiceRequest"
+            customer:
+              $ref: "#/components/schemas/User"
+
+    WorkerDashboardResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            summary:
+              $ref: "#/components/schemas/WorkerDashboard"
+
+    ConversationsListResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            conversations:
+              type: array
+              items:
+                $ref: "#/components/schemas/MessageConversation"
+
+    MessagesListResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            messages:
+              type: array
+              items:
+                $ref: "#/components/schemas/Message"
+
+    MessageResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            message:
+              $ref: "#/components/schemas/Message"
+
+    AdminDashboardResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            summary:
+              $ref: "#/components/schemas/AdminDashboard"
+
+    PendingWorkersResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            workers:
+              type: array
+              items:
+                $ref: "#/components/schemas/WorkerCard"
+
+    PaymentResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            payment:
+              $ref: "#/components/schemas/Payment"
