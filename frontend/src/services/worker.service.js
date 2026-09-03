@@ -5,7 +5,7 @@ import { getCurrentUser, setCurrentUser } from "./auth.service";
 import { getPortfolioByWorker } from "./portfolio.service";
 import { getWorkerRating } from "./review.service";
 
-const PLACEHOLDER_AVATAR = "/api/placeholder/150/150";
+const PLACEHOLDER_AVATAR = null;
 
 function toLegacyWorkerId(workerId) {
   if (workerId === null || workerId === undefined || workerId === "") {
@@ -109,12 +109,15 @@ function mapWorkerDetails(response) {
     return null;
   }
 
+  const details = response.worker;
+  const worker = details.worker || details;
+
   return mapWorkerCard({
-    ...response.worker,
-    bio: response.bio,
-    phone: response.phone,
-    email: response.email,
-    skills: response.skills,
+    ...worker,
+    bio: details.bio || response.bio,
+    phone: details.phone || response.phone,
+    email: details.email || response.email,
+    skills: details.skills || response.skills,
   });
 }
 
@@ -253,7 +256,17 @@ export async function getWorkers() {
   const response = await apiGet("/workers");
   const workers = response?.workers || [];
 
-  return workers.map(mapWorkerCard).filter(Boolean);
+  const uniqueWorkers = new Map();
+
+  for (const worker of workers) {
+    const mappedWorker = mapWorkerCard(worker);
+
+    if (mappedWorker && !uniqueWorkers.has(mappedWorker.workerId)) {
+      uniqueWorkers.set(mappedWorker.workerId, mappedWorker);
+    }
+  }
+
+  return [...uniqueWorkers.values()];
 }
 
 export async function getWorkerById(workerId) {

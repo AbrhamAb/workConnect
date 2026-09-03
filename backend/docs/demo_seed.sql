@@ -2,11 +2,11 @@ BEGIN;
 
 INSERT INTO users (full_name, email, phone, role, is_active, email_verified, phone_verified, password_hash)
 VALUES
-  ('Admin One', 'admin@workconnect.demo', '+251900000001', 'admin', TRUE, TRUE, TRUE, '$2a$10$1XNNspdK0fT2gzx9o5/EvOIHNeRU5BeRobFzCzH8N5ZEy4TMsYrmu'),
-  ('Sara Tadesse', 'sara.customer@workconnect.demo', '+251900000101', 'customer', TRUE, TRUE, TRUE, '$2a$10$1XNNspdK0fT2gzx9o5/EvOIHNeRU5BeRobFzCzH8N5ZEy4TMsYrmu'),
-  ('Dawit Bekele', 'dawit.customer@workconnect.demo', '+251900000102', 'customer', TRUE, TRUE, TRUE, '$2a$10$1XNNspdK0fT2gzx9o5/EvOIHNeRU5BeRobFzCzH8N5ZEy4TMsYrmu'),
-  ('Abel Mekonnen', 'abel.worker@workconnect.demo', '+251900000201', 'worker', TRUE, TRUE, TRUE, '$2a$10$1XNNspdK0fT2gzx9o5/EvOIHNeRU5BeRobFzCzH8N5ZEy4TMsYrmu'),
-  ('Hanna Girma', 'hanna.worker@workconnect.demo', '+251900000202', 'worker', TRUE, TRUE, TRUE, '$2a$10$1XNNspdK0fT2gzx9o5/EvOIHNeRU5BeRobFzCzH8N5ZEy4TMsYrmu')
+  ('Admin One', 'admin@workconnect.demo', '+251900000001', 'admin', TRUE, TRUE, TRUE, '$2a$10$.zzefK9u3BCiAyUWd56ObOiu3Yo.DoLyWiLGsmXzcOvYzJh84RxVu'),
+  ('Sara Tadesse', 'sara.customer@workconnect.demo', '+251900000101', 'customer', TRUE, TRUE, TRUE, '$2a$10$.zzefK9u3BCiAyUWd56ObOiu3Yo.DoLyWiLGsmXzcOvYzJh84RxVu'),
+  ('Dawit Bekele', 'dawit.customer@workconnect.demo', '+251900000102', 'customer', TRUE, TRUE, TRUE, '$2a$10$.zzefK9u3BCiAyUWd56ObOiu3Yo.DoLyWiLGsmXzcOvYzJh84RxVu'),
+  ('Abel Mekonnen', 'abel.worker@workconnect.demo', '+251900000201', 'worker', TRUE, TRUE, TRUE, '$2a$10$.zzefK9u3BCiAyUWd56ObOiu3Yo.DoLyWiLGsmXzcOvYzJh84RxVu'),
+  ('Hanna Girma', 'hanna.worker@workconnect.demo', '+251900000202', 'worker', TRUE, TRUE, TRUE, '$2a$10$.zzefK9u3BCiAyUWd56ObOiu3Yo.DoLyWiLGsmXzcOvYzJh84RxVu')
 ON CONFLICT (email) DO UPDATE
 SET
   full_name = EXCLUDED.full_name,

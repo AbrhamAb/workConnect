@@ -30,9 +30,9 @@ export default function WorkerReviews({ reviews = [] }) {
       {/* Reviews */}
 
       <div className="space-y-4">
-        {reviews.map((review) => (
+        {reviews.map((review, index) => (
           <div
-            key={review.id}
+            key={`${review.id ?? "review"}-${index}`}
             className="rounded-xl border border-gray-100 p-5 transition hover:shadow-sm"
           >
             {/* Top */}
@@ -67,9 +67,9 @@ export default function WorkerReviews({ reviews = [] }) {
               {/* Rating */}
 
               <div className="flex gap-1">
-                {[1, 2, 3, 4, 5].map((star) => (
+                {[1, 2, 3, 4, 5].map((star, index) => (
                   <span
-                    key={star}
+                    key={`review-star-${review.id}-${index}`}
                     className={
                       star <= review.rating
                         ? "text-yellow-500"

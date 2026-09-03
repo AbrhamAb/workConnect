@@ -126,8 +126,14 @@ func (s *sqlStore) ListWorkers(ctx context.Context, category, city, qTerm, sort 
 			COALESCE(sc.name, '') AS category_name
 		FROM worker_profiles wp
 		INNER JOIN users u ON u.id = wp.user_id
-		LEFT JOIN worker_skills ws ON ws.worker_id = wp.id
-		LEFT JOIN service_categories sc ON sc.id = ws.category_id
+		JOIN LATERAL (
+			SELECT sc.name
+			FROM worker_skills ws
+			INNER JOIN service_categories sc ON sc.id = ws.category_id
+			WHERE ws.worker_id = wp.id
+			ORDER BY ws.category_id
+			LIMIT 1
+		) sc ON TRUE
 		WHERE u.role = 'worker' AND u.is_active = TRUE AND wp.is_verified = TRUE
 	`
 
@@ -539,7 +545,7 @@ func (s *sqlStore) MarkServiceRequestCompletedByWorker(ctx context.Context, work
 		WHERE sr.id = $1
 		  AND sr.worker_id = wp.id
 		  AND wp.user_id = $2
-		  AND sr.status = 'accepted'
+		  AND sr.status = 'in_progress'
 		RETURNING sr.id
 	`
 
@@ -577,7 +583,7 @@ func (s *sqlStore) CreateReview(ctx context.Context, requestID, customerID int64
 		INSERT INTO reviews (request_id, customer_id, worker_id, rating, comment)
 		SELECT sr.id, sr.customer_id, sr.worker_id, $3, $4
 		FROM service_requests sr
-		WHERE sr.id = $1 AND sr.customer_id = $2 AND sr.status = 'completed'
+		WHERE sr.id = $1 AND sr.customer_id = $2 AND sr.status = 'confirmed'
 	`
 	res, err := s.db.ExecContext(ctx, q, requestID, customerID, rating, comment)
 	if err != nil {

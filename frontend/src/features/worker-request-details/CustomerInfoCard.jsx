@@ -15,7 +15,7 @@ export default function CustomerInfoCard({ customer, request }) {
     <Card className="space-y-6">
       <div className="flex items-start gap-5">
         <Avatar
-          src={customer?.profileImage || "/api/placeholder/150/150"}
+          src={customer?.profileImage || null}
           alt={customerName}
           size="lg"
         />

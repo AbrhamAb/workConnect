@@ -44,8 +44,8 @@ export default function ActiveJobsCard({ requests }) {
 
       <div className="divide-y divide-gray-100">
         {activeRequests.length > 0 ? (
-          activeRequests.slice(0, 2).map((request) => (
-            <div key={request.id} className="p-6">
+          activeRequests.slice(0, 2).map((request, index) => (
+            <div key={`${request.id ?? "request"}-${index}`} className="p-6">
               <Badge className="mb-3">{formatStatus(request.status)}</Badge>
 
               <div className="flex items-start justify-between gap-4">

@@ -16,10 +16,12 @@ import {
 
 export default function RequestSidebar({ request, review, onRequestUpdated }) {
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   async function handleAction(action) {
     try {
       setSubmitting(true);
+      setError("");
 
       switch (action) {
         case "accept":
@@ -43,6 +45,8 @@ export default function RequestSidebar({ request, review, onRequestUpdated }) {
       }
 
       await onRequestUpdated?.();
+    } catch (actionError) {
+      setError(actionError.message || "Unable to update this request.");
     } finally {
       setSubmitting(false);
     }
@@ -138,6 +142,15 @@ export default function RequestSidebar({ request, review, onRequestUpdated }) {
 
       <ProjectPhotosCard request={request} />
 
+      {error && (
+        <div
+          role="alert"
+          className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700"
+        >
+          {error}
+        </div>
+      )}
+
       <Card>
         <div className="space-y-6">
           <div>
@@ -187,7 +200,7 @@ export default function RequestSidebar({ request, review, onRequestUpdated }) {
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
             <div className="flex items-start gap-3">
               <svg
-                className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600"
+                className="mt-0.5 h-5 w-5 shrink-0 text-amber-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"

@@ -28,9 +28,9 @@ export default function NewRequestsSection({ requests }) {
         {pendingRequests.length > 0 ? (
           pendingRequests
             .slice(0, 3)
-            .map((request) => (
+            .map((request, index) => (
               <WorkerRequestCard
-                key={request.id}
+                key={`${request.id ?? "request"}-${index}`}
                 id={request.id}
                 name={request.customer}
                 location={request.location}

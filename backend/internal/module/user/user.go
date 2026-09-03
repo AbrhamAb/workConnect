@@ -437,7 +437,7 @@ func (m *WorkConnectModule) generateToken(userID int64, fullName, role string) (
 		FullName: fullName,
 		Role:     role,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)), // this need to be 5 minute not 24 hour
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}

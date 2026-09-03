@@ -126,7 +126,7 @@ export default function WorkersPage() {
       location: worker.city,
       rating: worker.rating || 0,
       verified: worker.verified,
-      image: worker.profileImage || "/api/placeholder/150/150",
+      image: worker.profileImage || null,
       favorite: favoriteIds.has(worker.id),
     }));
   }, [workers, search, selectedCategory, favoriteIds]);
@@ -175,7 +175,7 @@ export default function WorkersPage() {
 
           return (
             <button
-              key={category}
+              key={`${category}-${selectedCategory === category ? "active" : "inactive"}`}
               onClick={() => setSelectedCategory(category)}
               className={`rounded-full px-5 py-2 text-sm font-medium transition ${
                 active
@@ -205,9 +205,9 @@ export default function WorkersPage() {
               : "No workers match your search yet."}
           </Card>
         ) : (
-          displayedWorkers.map((worker) => (
+          displayedWorkers.map((worker, index) => (
             <div
-              key={worker.workerId}
+              key={`${worker.workerId ?? worker.id ?? "worker"}-${index}`}
               className="rounded-2xl bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
             >
               <div className="flex items-start justify-between">

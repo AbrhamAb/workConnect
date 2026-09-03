@@ -91,6 +91,10 @@ export default function WorkerProfilePage() {
           return;
         }
 
+        if (!workerProfile?.worker) {
+          throw new Error("This worker profile is no longer available.");
+        }
+
         setProfile(workerProfile);
 
         setReviewData(reviews);
@@ -150,7 +154,7 @@ export default function WorkerProfilePage() {
 
       title: profile.worker.primarySkill || "Skilled professional",
 
-      image: profile.worker.profileImage || "/api/placeholder/300/300",
+      image: profile.worker.profileImage || null,
 
       verified: profile.worker.verified,
 

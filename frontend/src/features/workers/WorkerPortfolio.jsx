@@ -33,6 +33,7 @@ export default function WorkerPortfolio({ portfolio = [] }) {
                 src={image}
                 alt={`Portfolio ${index + 1}`}
                 fill
+                sizes="(max-width: 768px) 50vw, 25vw"
                 className="object-cover transition hover:scale-105"
               />
             </div>

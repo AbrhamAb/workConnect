@@ -65,7 +65,7 @@ export default function WorkerProfilePage() {
       fullName: worker.fullName,
       email: worker.email,
       phone: worker.phone,
-      profileImage: worker.profileImage || "/api/placeholder/200/200",
+      profileImage: worker.profileImage || null,
       primarySkill: worker.primarySkill || "Skilled professional",
       experience: worker.experience || 0,
       city: worker.city || "Addis Ababa",

@@ -6,7 +6,6 @@ import { getCurrentUser } from "./auth.service";
 import {
   findMany,
   findOne,
-  insertOne,
   updateOne,
   deleteOne,
 } from "./storage.service";
@@ -182,29 +181,6 @@ export async function createReview(data) {
     throw new Error("Only customers can leave reviews.");
   }
 
-  const request = findOne(
-    "requests",
-    (request) => request.id === data.requestId,
-  );
-
-  if (!request) {
-    throw new Error("Request not found.");
-  }
-
-  if (request.customerId !== customer.id) {
-    throw new Error("You can only review your own requests.");
-  }
-
-  if (request.status !== "confirmed") {
-    throw new Error(
-      "Reviews can only be submitted after the job has been confirmed.",
-    );
-  }
-
-  if (findOne("reviews", (review) => review.requestId === data.requestId)) {
-    throw new Error("This request has already been reviewed.");
-  }
-
   const rating = Number(data.rating);
 
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
@@ -213,21 +189,6 @@ export async function createReview(data) {
 
   const trimmedComment = data.comment?.trim();
 
-  const review = {
-    id: crypto.randomUUID(),
-
-    requestId: request.id,
-
-    workerId: request.workerId,
-    customerId: customer.id,
-
-    rating,
-
-    comment: trimmedComment || null,
-
-    createdAt: new Date().toISOString(),
-  };
-
   const numericRequestId = Number(String(data.requestId).replace(/^req-/, ""));
 
   await apiPost(`/customer/requests/${numericRequestId}/review`, {
@@ -235,7 +196,12 @@ export async function createReview(data) {
     comment: trimmedComment || "",
   });
 
-  return buildReview(insertOne("reviews", review));
+  return {
+    requestId: data.requestId,
+    customerId: customer.id,
+    rating,
+    comment: trimmedComment || null,
+  };
 }
 
 /**

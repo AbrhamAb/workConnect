@@ -11,13 +11,19 @@ export function Avatar({ src, alt = "Avatar", size = "md", className }) {
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-full bg-gray-200 flex-shrink-0",
+        "relative overflow-hidden rounded-full bg-gray-200 shrink-0",
         sizes[size],
         className,
       )}
     >
       {src ? (
-        <Image src={src} alt={alt} fill className="object-cover" />
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          sizes={`${size === "lg" ? 56 : size === "sm" ? 32 : 40}px`}
+          className="object-cover"
+        />
       ) : (
         <svg
           className="h-full w-full text-gray-400"

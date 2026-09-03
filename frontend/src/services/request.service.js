@@ -5,7 +5,7 @@ import { getCurrentUser } from "./auth.service";
 import { getWorkerById } from "./worker.service";
 import { findMany, findOne, insertOne, updateOne, deleteOne } from "./storage.service";
 
-const PLACEHOLDER_AVATAR = "/api/placeholder/150/150";
+const PLACEHOLDER_AVATAR = null;
 
 function toNumericId(value, prefix) {
   if (value === null || value === undefined || value === "") {
@@ -180,9 +180,15 @@ export async function createRequest(data) {
     throw new Error("Please select a worker before sending the request.");
   }
 
-  const preferredAt =
-    data.preferredAt ||
-    (data.date ? `${data.date}T00:00:00Z` : null);
+  let preferredAt = data.preferredAt || null;
+
+  if (!preferredAt && data.date) {
+    const parsedDate = new Date(data.date);
+
+    if (!Number.isNaN(parsedDate.getTime())) {
+      preferredAt = parsedDate.toISOString();
+    }
+  }
 
   const response = await apiPost("/customer/requests", {
     workerId,
@@ -192,6 +198,10 @@ export async function createRequest(data) {
     preferredAt,
     budgetEtb: Number(data.budget) || 0,
   });
+
+  if (!response?.request && !response?.id) {
+    throw new Error("The request was not created. Please try again.");
+  }
 
   return normalizeRequest(response?.request || response);
 }

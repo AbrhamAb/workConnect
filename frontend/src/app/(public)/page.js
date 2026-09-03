@@ -39,8 +39,8 @@ export default function WorkerBrowsingPage() {
       specialty: "Expert Plumber",
       location: "Bole, Addis Ababa",
       rating: "4.9",
-      avatar: "/api/placeholder/100/100",
-      coverImage: "/api/placeholder/600/400",
+      avatar: null,
+      coverImage: null,
       isVerified: true,
     },
     {
@@ -49,8 +49,8 @@ export default function WorkerBrowsingPage() {
       specialty: "Expert Plumber",
       location: "Bole, Addis Ababa",
       rating: "4.9",
-      avatar: "/api/placeholder/100/100",
-      coverImage: "/api/placeholder/600/400",
+      avatar: null,
+      coverImage: null,
       isVerified: true,
     },
     {
@@ -59,8 +59,8 @@ export default function WorkerBrowsingPage() {
       specialty: "Expert Plumber",
       location: "Bole, Addis Ababa",
       rating: "4.9",
-      avatar: "/api/placeholder/100/100",
-      coverImage: "/api/placeholder/600/400",
+      avatar: null,
+      coverImage: null,
       isVerified: true,
     },
   ];

@@ -36,7 +36,9 @@ export default function LoginPage() {
     try {
       const user = await login(data.email, data.password);
 
-      if (user.role === "customer") {
+      if (user.role === "admin") {
+        router.push("/admin/dashboard");
+      } else if (user.role === "customer") {
         router.push("/customer/dashboard");
       } else {
         router.push("/worker/dashboard");

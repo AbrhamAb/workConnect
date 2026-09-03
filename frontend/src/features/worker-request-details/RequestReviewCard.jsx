@@ -51,9 +51,9 @@ export default function RequestReviewCard({ review }) {
 
         <div className="flex items-center gap-2">
           <div className="flex gap-1">
-            {[1, 2, 3, 4, 5].map((star) => (
+            {[1, 2, 3, 4, 5].map((star, index) => (
               <span
-                key={star}
+                key={`rating-star-${index}`}
                 className={
                   star <= review.rating
                     ? "text-lg text-yellow-500"

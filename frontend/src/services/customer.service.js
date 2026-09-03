@@ -4,7 +4,7 @@ import { apiGet } from "./api.service";
 import { getCurrentUser, setCurrentUser } from "./auth.service";
 import { getWorkerById } from "./worker.service";
 
-const PLACEHOLDER_AVATAR = "/api/placeholder/150/150";
+const PLACEHOLDER_AVATAR = null;
 
 function toLegacyCustomerId(customerId) {
   if (customerId === null || customerId === undefined || customerId === "") {
@@ -204,9 +204,9 @@ export async function getCustomerRequest(requestId) {
     return null;
   }
 
-  const response = await apiGet(`/customer/requests/${numericRequestId}`);
+    const response = await apiGet(`/customer/requests/${numericRequestId}`);
 
-  return normalizeRequest(response?.request || response);
+    return normalizeRequest(response?.request || response);
 }
 
 export async function getCustomerDashboardData() {

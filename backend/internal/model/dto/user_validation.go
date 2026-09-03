@@ -1,12 +1,26 @@
 package dto
 
 import (
+	"net/mail"
 	"strings"
 	"task-management-backend/internal/model/db"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
-	"github.com/go-ozzo/ozzo-validation/v4/is"
 )
+
+func validEmail(value any) error {
+	email, ok := value.(string)
+	if !ok {
+		return validation.NewError("validation_email", "email must be valid")
+	}
+
+	parsed, err := mail.ParseAddress(strings.TrimSpace(email))
+	if err != nil || parsed.Address != strings.TrimSpace(email) {
+		return validation.NewError("validation_email", "email must be valid")
+	}
+
+	return nil
+}
 
 func (r RegisterRequest) Validate() error {
 	return validation.ValidateStruct(&r,
@@ -16,7 +30,7 @@ func (r RegisterRequest) Validate() error {
 		),
 		validation.Field(&r.Email,
 			validation.Required.Error("email is required"),
-			is.Email.Error("email must be a valid email address"),
+			validation.By(validEmail),
 		),
 		validation.Field(&r.Phone,
 			validation.Required.Error("phone is required"),
@@ -42,7 +56,7 @@ func (r RegisterRequest) Validate() error {
 
 func (r LoginRequest) Validate() error {
 	return validation.ValidateStruct(&r,
-		validation.Field(&r.Email, validation.Required.Error("email is required"), is.Email.Error("email must be valid")),
+		validation.Field(&r.Email, validation.Required.Error("email is required"), validation.By(validEmail)),
 		validation.Field(&r.Password, validation.Required.Error("password is required")),
 	)
 }

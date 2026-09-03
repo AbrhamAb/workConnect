@@ -115,7 +115,13 @@ func (h *Handler) GetWorkerProfile(w nethttp.ResponseWriter, r *nethttp.Request)
 		return
 	}
 
-	response.SendSuccessResponse(w, r, nethttp.StatusOK, "worker fetched", map[string]any{"worker": worker})
+	response.SendSuccessResponse(w, r, nethttp.StatusOK, "worker fetched", map[string]any{
+		"worker": worker.Worker,
+		"bio":    worker.Bio,
+		"phone":  worker.Phone,
+		"email":  worker.Email,
+		"skills": worker.Skills,
+	})
 }
 
 func (h *Handler) CreateCustomerRequest(w nethttp.ResponseWriter, r *nethttp.Request) {
@@ -186,7 +192,14 @@ func (h *Handler) GetCustomerRequest(w nethttp.ResponseWriter, r *nethttp.Reques
 		return
 	}
 
-	response.SendSuccessResponse(w, r, nethttp.StatusOK, "request fetched", map[string]any{"request": request, "worker": worker})
+	response.SendSuccessResponse(w, r, nethttp.StatusOK, "request fetched", map[string]any{
+		"request": request,
+		"worker":  worker.Worker,
+		"bio":     worker.Bio,
+		"phone":   worker.Phone,
+		"email":   worker.Email,
+		"skills":  worker.Skills,
+	})
 }
 
 func (h *Handler) SubmitCustomerReview(w nethttp.ResponseWriter, r *nethttp.Request) {

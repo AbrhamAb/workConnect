@@ -11,8 +11,11 @@ export default function WorkerRequestList({ requests = [] }) {
 
   return (
     <div className="space-y-5">
-      {requests.map((request) => (
-        <WorkerRequestListCard key={request.id} request={request} />
+      {requests.map((request, index) => (
+        <WorkerRequestListCard
+          key={`${request.id ?? "request"}-${index}`}
+          request={request}
+        />
       ))}
     </div>
   );

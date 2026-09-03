@@ -32,7 +32,7 @@ export default function WorkerRequestListCard({ request }) {
         <div className="flex flex-col gap-6 lg:flex-row lg:justify-between">
           <div className="flex gap-4">
             <Avatar
-              src={request.avatar || "/api/placeholder/150/150"}
+              src={request.avatar || null}
               alt={request.customer || "Customer"}
               size="lg"
             />

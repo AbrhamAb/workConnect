@@ -194,7 +194,7 @@ export default function RequestDetailsPage() {
       rating: details.worker.rating || 4.8,
       reviews: details.worker.totalReviews || 0,
       verified: details.worker.verified || false,
-      avatar: details.worker.profileImage || "/api/placeholder/200/200",
+      avatar: details.worker.profileImage || null,
       responseTime: "Usually within 2 hours",
       estimatedDuration: "1 Day",
     };
@@ -212,6 +212,14 @@ export default function RequestDetailsPage() {
     return (
       <Card className="rounded-2xl border border-red-100 bg-red-50 p-8 text-center text-red-600">
         {error}
+      </Card>
+    );
+  }
+
+  if (!details) {
+    return (
+      <Card className="rounded-2xl border border-dashed border-gray-200 p-8 text-center text-gray-500">
+        Request details are unavailable.
       </Card>
     );
   }

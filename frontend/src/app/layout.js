@@ -5,6 +5,9 @@ import AuthProvider from "@/providers/AuthProvider";
 export const metadata = {
   title: "WorkConnect",
   description: "Job platform",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({ children }) {

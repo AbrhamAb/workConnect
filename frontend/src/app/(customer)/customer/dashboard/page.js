@@ -81,7 +81,7 @@ export default function CustomerDashboard() {
     id: request.id,
     title: request.title,
     workerName: request.worker?.fullName || "Assigned worker",
-    workerAvatar: request.worker?.profileImage || "/api/placeholder/100/100",
+    workerAvatar: request.worker?.profileImage || null,
     date: formatDate(request.preferredDate),
     time: request.preferredTime || "Flexible",
     status: formatStatus(request.status),
@@ -154,7 +154,7 @@ export default function CustomerDashboard() {
           ) : (
             requests.map((request) => (
               <Link
-                key={request.id}
+                key={`${request.requestId ?? request.id ?? "request"}-${request.createdAt ?? ""}`}
                 href={`/customer/dashboard/requests/${request.id}`}
               >
                 <div className="transition-transform duration-200 hover:scale-[1.01]">

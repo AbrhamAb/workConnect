@@ -365,6 +365,13 @@ func migrate(ctx context.Context, db *sql.DB) error {
 				ADD CONSTRAINT worker_profiles_verification_status_check
 				CHECK (verification_status IN ('not_submitted', 'pending', 'approved', 'rejected'));
 
+			ALTER TABLE service_requests
+				DROP CONSTRAINT IF EXISTS service_requests_status_check;
+
+			ALTER TABLE service_requests
+				ADD CONSTRAINT service_requests_status_check
+				CHECK (status IN ('pending', 'accepted', 'in_progress', 'rejected', 'completed', 'confirmed', 'cancelled'));
+
 		INSERT INTO service_categories (name, slug, description)
 		SELECT * FROM (VALUES
 			('Electrician', 'electrician', 'Electrical installation and repair'),

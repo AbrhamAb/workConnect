@@ -93,6 +93,11 @@ export async function apiRequest(path, { method = "GET", body, query, auth = tru
   const response = await fetch(buildUrl(path, query), requestInit);
   const payload = await parseResponse(response);
 
+  if (response.status === 401 && typeof window !== "undefined") {
+    localStorage.removeItem(CURRENT_USER_KEY);
+    window.dispatchEvent(new Event("workconnect-auth-expired"));
+  }
+
   if (!response.ok) {
     throw new Error(getErrorMessage(payload, response.statusText));
   }

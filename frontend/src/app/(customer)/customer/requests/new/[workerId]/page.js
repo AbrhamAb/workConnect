@@ -55,6 +55,10 @@ export default function RequestServicePage() {
           return;
         }
 
+        if (!data?.worker) {
+          throw new Error("This worker profile is no longer available.");
+        }
+
         setWorker({
           ...data.worker,
           rating: data.rating.rating,
@@ -165,7 +169,7 @@ export default function RequestServicePage() {
 
       title: worker.primarySkill || "Skilled professional",
 
-      image: worker.profileImage || "/api/placeholder/150/150",
+      image: worker.profileImage || null,
 
       rating: worker.rating || 0,
 
@@ -188,6 +192,15 @@ export default function RequestServicePage() {
       ) : requestWorker ? (
         <form onSubmit={handleSubmit}>
           <RequestHeader worker={requestWorker} />
+
+          {error && (
+            <div
+              role="alert"
+              className="mt-6 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700"
+            >
+              {error}
+            </div>
+          )}
 
           <section className="mt-8 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
             <WorkerSummaryCard worker={requestWorker} />

@@ -92,9 +92,9 @@ export default function LeaveReviewCard({
           </label>
 
           <div className="flex items-center gap-2">
-            {[1, 2, 3, 4, 5].map((star) => (
+            {[1, 2, 3, 4, 5].map((star, index) => (
               <button
-                key={star}
+                key={`rating-star-${index}`}
                 type="button"
                 onClick={() => handleRatingChange(star)}
                 className="text-3xl transition hover:scale-110"
