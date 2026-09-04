@@ -1,6 +1,6 @@
 import { delay } from "@/lib/delay";
 
-import { apiGet } from "./api.service";
+import { apiGet, apiPost } from "./api.service";
 import { getCurrentUser, setCurrentUser } from "./auth.service";
 import { getPortfolioByWorker } from "./portfolio.service";
 import { getWorkerRating } from "./review.service";
@@ -456,6 +456,14 @@ export async function getWorkerProfileData(workerId) {
     portfolio,
     rating,
   };
+}
+
+export async function uploadVerificationDocument(document) {
+  return apiPost("/worker/verification/documents", document);
+}
+
+export async function submitWorkerVerification() {
+  return apiPost("/worker/verification/submit", {});
 }
 
 export async function getWorkerAnalyticsData() {

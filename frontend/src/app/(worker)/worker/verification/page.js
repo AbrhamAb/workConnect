@@ -8,12 +8,77 @@ import { VerificationNotice } from "@/features/worker-verification/VerificationN
 import { UploadGuidelines } from "@/features/worker-verification/UploadGuidelines";
 import { GovernmentIdUpload } from "@/features/worker-verification/GovernmentIdUpload";
 import { CertificateUpload } from "@/features/worker-verification/CertificateUpload";
-import { getCurrentWorker } from "@/services/worker.service";
+import {
+  getCurrentWorker,
+  uploadVerificationDocument,
+  submitWorkerVerification,
+} from "@/services/worker.service";
 
 export default function VerificationPage() {
   const [worker, setWorker] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [documents, setDocuments] = useState({
+    government_id: null,
+    professional_certificate: null,
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  function handleFileChange(documentType, event) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    if (!['image/png', 'image/jpeg', 'application/pdf'].includes(file.type)) {
+      setError("Please upload a PNG, JPG, or PDF file.");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Each document must be smaller than 10 MB.");
+      return;
+    }
+
+    setError("");
+    setDocuments((current) => ({ ...current, [documentType]: file }));
+  }
+
+  async function handleSubmitVerification() {
+    if (!documents.government_id || !documents.professional_certificate) {
+      setError("Upload both documents before submitting verification.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError("");
+
+      for (const [documentType, file] of Object.entries(documents)) {
+        const fileUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error("Unable to read the selected file."));
+          reader.readAsDataURL(file);
+        });
+
+        await uploadVerificationDocument({
+          documentType,
+          fileUrl,
+          fileName: file.name,
+          mimeType: file.type,
+          fileSizeBytes: file.size,
+        });
+      }
+
+      await submitWorkerVerification();
+      setSubmitted(true);
+    } catch (err) {
+      setError(err.message || "Unable to submit verification.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -72,9 +137,27 @@ export default function VerificationPage() {
 
       <UploadGuidelines />
 
-      <GovernmentIdUpload />
+      <GovernmentIdUpload
+        file={documents.government_id}
+        onFileChange={(event) => handleFileChange("government_id", event)}
+      />
 
-      <CertificateUpload />
+      <CertificateUpload
+        file={documents.professional_certificate}
+        onFileChange={(event) => handleFileChange("professional_certificate", event)}
+      />
+
+      {error && (
+        <Card className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
+          {error}
+        </Card>
+      )}
+
+      {submitted && (
+        <Card className="rounded-2xl border border-green-100 bg-green-50 p-4 text-sm text-green-700">
+          Verification submitted successfully. An administrator will review your documents.
+        </Card>
+      )}
 
       {/* Footer */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -90,7 +173,13 @@ export default function VerificationPage() {
           <div className="flex gap-3">
             <Button variant="secondary">Cancel</Button>
 
-            <Button variant="primary">Submit Verification</Button>
+            <Button
+              variant="primary"
+              disabled={submitting || submitted}
+              onClick={handleSubmitVerification}
+            >
+              {submitting ? "Submitting..." : submitted ? "Submitted" : "Submit Verification"}
+            </Button>
           </div>
         </div>
       </div>

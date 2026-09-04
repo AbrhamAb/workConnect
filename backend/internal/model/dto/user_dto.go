@@ -1,11 +1,13 @@
 package dto
 
 type RegisterRequest struct {
-	FullName string `json:"fullName"`
-	Email    string `json:"email"`
-	Phone    string `json:"phone"`
-	Role     string `json:"role"`
-	Password string `json:"password"`
+	FullName     string   `json:"fullName"`
+	Email        string   `json:"email"`
+	Phone        string   `json:"phone"`
+	Role         string   `json:"role"`
+	Password     string   `json:"password"`
+	PrimarySkill string   `json:"primarySkill"`
+	Skills       []string `json:"skills"`
 }
 
 type LoginRequest struct {
@@ -42,6 +44,14 @@ type WorkerDecisionRequest struct {
 
 type UpdateAvailabilityRequest struct {
 	AvailabilityStatus string `json:"availabilityStatus"`
+}
+
+type UploadWorkerDocumentRequest struct {
+	DocumentType  string `json:"documentType"`
+	FileURL       string `json:"fileUrl"`
+	FileName      string `json:"fileName"`
+	MimeType      string `json:"mimeType"`
+	FileSizeBytes int64  `json:"fileSizeBytes"`
 }
 
 type SubmitReviewRequest struct {

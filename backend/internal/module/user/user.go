@@ -59,7 +59,7 @@ func (m *WorkConnectModule) Register(ctx context.Context, req dto.RegisterReques
 	}
 
 	if user.Role == db.RoleWorker {
-		if err = m.store.CreateWorkerProfile(ctx, user.ID); err != nil {
+		if err = m.store.CreateWorkerProfile(ctx, user.ID, req.PrimarySkill, req.Skills); err != nil {
 			return "", db.User{}, err
 		}
 	}
@@ -147,6 +147,9 @@ func (m *WorkConnectModule) CreateServiceRequest(ctx context.Context, customerID
 	if req.CategoryID == 0 {
 		categoryID, err := m.store.GetWorkerPrimaryCategoryID(ctx, req.WorkerID)
 		if err != nil {
+			if stderrs.Is(err, sql.ErrNoRows) {
+				return db.ServiceRequestView{}, apperrors.ErrWorkerCategoryMissing
+			}
 			return db.ServiceRequestView{}, err
 		}
 		req.CategoryID = categoryID
@@ -313,6 +316,26 @@ func (m *WorkConnectModule) AdminDashboard(ctx context.Context) (db.AdminDashboa
 
 func (m *WorkConnectModule) PendingWorkerVerifications(ctx context.Context) ([]db.WorkerCard, error) {
 	return m.store.PendingWorkerVerifications(ctx)
+}
+
+func (m *WorkConnectModule) ListWorkerDocuments(ctx context.Context, workerID int64) ([]db.WorkerDocument, error) {
+	return m.store.ListWorkerDocuments(ctx, workerID)
+}
+
+func (m *WorkConnectModule) UploadWorkerDocument(ctx context.Context, workerUserID int64, document dto.UploadWorkerDocumentRequest) error {
+	workerID, _, err := m.store.WorkerProfileByUserID(ctx, workerUserID)
+	if err != nil {
+		return err
+	}
+	return m.store.UpsertWorkerDocument(ctx, workerID, document)
+}
+
+func (m *WorkConnectModule) SubmitWorkerVerification(ctx context.Context, workerUserID int64) error {
+	workerID, _, err := m.store.WorkerProfileByUserID(ctx, workerUserID)
+	if err != nil {
+		return err
+	}
+	return m.store.SubmitWorkerVerification(ctx, workerID)
 }
 
 func (m *WorkConnectModule) VerifyWorker(ctx context.Context, workerID int64, verified bool) error {

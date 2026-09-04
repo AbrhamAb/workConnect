@@ -14,3 +14,14 @@ export async function approveWorker(workerId) {
 
   return apiPatch(`/admin/workers/${numericWorkerId}/verify`, {});
 }
+
+export async function getWorkerDocuments(workerId) {
+  const numericWorkerId = Number(workerId);
+
+  if (!Number.isFinite(numericWorkerId) || numericWorkerId <= 0) {
+    throw new Error("Invalid worker id.");
+  }
+
+  const response = await apiGet(`/admin/workers/${numericWorkerId}/documents`);
+  return response?.documents || [];
+}

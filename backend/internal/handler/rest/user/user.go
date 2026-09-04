@@ -501,6 +501,58 @@ func (h *Handler) PendingWorkers(w nethttp.ResponseWriter, r *nethttp.Request) {
 	response.SendSuccessResponse(w, r, nethttp.StatusOK, "workers fetched", map[string]any{"workers": workers})
 }
 
+func (h *Handler) ListWorkerDocuments(w nethttp.ResponseWriter, r *nethttp.Request) {
+	workerID, err := parseIDParam(r, "workerID")
+	if err != nil {
+		response.SendErrorResponse(w, r, stderrs.New("invalid worker id"))
+		return
+	}
+
+	documents, err := h.Module().WorkConnect.ListWorkerDocuments(r.Context(), workerID)
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	response.SendSuccessResponse(w, r, nethttp.StatusOK, "worker documents fetched", map[string]any{"documents": documents})
+}
+
+func (h *Handler) UploadWorkerDocument(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	var req dto.UploadWorkerDocumentRequest
+	if err = decodeAndValidate(r, &req); err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	if err = h.Module().WorkConnect.UploadWorkerDocument(r.Context(), principal.UserID, req); err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	response.SendSuccessResponse(w, r, nethttp.StatusOK, "document uploaded", nil)
+}
+
+func (h *Handler) SubmitWorkerVerification(w nethttp.ResponseWriter, r *nethttp.Request) {
+	principal, err := h.requirePrincipal(r.Context())
+	if err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	if err = h.Module().WorkConnect.SubmitWorkerVerification(r.Context(), principal.UserID); err != nil {
+		response.SendErrorResponse(w, r, err)
+		return
+	}
+
+	response.SendSuccessResponse(w, r, nethttp.StatusOK, "verification submitted", nil)
+}
+
 func (h *Handler) VerifyWorker(w nethttp.ResponseWriter, r *nethttp.Request) {
 	workerID, err := parseIDParam(r, "workerID")
 	if err != nil {

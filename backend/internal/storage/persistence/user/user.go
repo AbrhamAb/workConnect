@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"task-management-backend/internal/model/db"
+	"task-management-backend/internal/model/dto"
 	persistence "task-management-backend/internal/storage/persistence"
 	"time"
 )
@@ -99,14 +100,71 @@ func (s *sqlStore) GetUserByID(ctx context.Context, userID int64) (db.User, erro
 	return user, err
 }
 
-func (s *sqlStore) CreateWorkerProfile(ctx context.Context, userID int64) error {
+func (s *sqlStore) CreateWorkerProfile(ctx context.Context, userID int64, primarySkill string, skills []string) error {
 	q := `
 		INSERT INTO worker_profiles (user_id, headline, bio, city, experience_years, hourly_rate_etb, availability_status)
 		VALUES ($1, 'Verified Professional', '', 'Addis Ababa', 0, 0, 'available')
 		ON CONFLICT (user_id) DO NOTHING
 	`
-	_, err := s.db.ExecContext(ctx, q, userID)
-	return err
+	if _, err := s.db.ExecContext(ctx, q, userID); err != nil {
+		return err
+	}
+
+	var workerID int64
+	if err := s.db.QueryRowContext(ctx, `
+		SELECT id FROM worker_profiles WHERE user_id = $1
+	`, userID).Scan(&workerID); err != nil {
+		return err
+	}
+
+	categorySlugs := make([]string, 0, len(skills)+1)
+	addCategory := func(skill string) {
+		slug := normalizeCategorySlug(skill)
+		for _, existing := range categorySlugs {
+			if existing == slug {
+				return
+			}
+		}
+		categorySlugs = append(categorySlugs, slug)
+	}
+	addCategory(primarySkill)
+	for _, skill := range skills {
+		addCategory(skill)
+	}
+
+	for _, slug := range categorySlugs {
+		_, err := s.db.ExecContext(ctx, `
+			INSERT INTO worker_skills (worker_id, category_id)
+			SELECT $1, id FROM service_categories WHERE slug = $2
+			ON CONFLICT DO NOTHING
+		`, workerID, slug)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func normalizeCategorySlug(skill string) string {
+	slug := strings.ToLower(strings.TrimSpace(skill))
+	slug = strings.ReplaceAll(slug, " ", "-")
+	switch slug {
+	case "plumbing":
+		return "plumber"
+	case "electrical":
+		return "electrician"
+	case "carpentry":
+		return "carpenter"
+	case "painting":
+		return "painter"
+	case "cleaning":
+		return "cleaner"
+	case "welding", "appliance-repair", "other", "":
+		return "handyman"
+	default:
+		return slug
+	}
 }
 
 func (s *sqlStore) ListWorkers(ctx context.Context, category, city, qTerm, sort string) ([]db.WorkerCard, error) {
@@ -126,7 +184,7 @@ func (s *sqlStore) ListWorkers(ctx context.Context, category, city, qTerm, sort 
 			COALESCE(sc.name, '') AS category_name
 		FROM worker_profiles wp
 		INNER JOIN users u ON u.id = wp.user_id
-		JOIN LATERAL (
+		LEFT JOIN LATERAL (
 			SELECT sc.name
 			FROM worker_skills ws
 			INNER JOIN service_categories sc ON sc.id = ws.category_id
@@ -872,7 +930,7 @@ func (s *sqlStore) AdminDashboard(ctx context.Context) (db.AdminDashboard, error
 		SELECT
 			(SELECT COUNT(*)::int FROM users),
 			(SELECT COUNT(*)::int FROM users WHERE role = 'worker'),
-			(SELECT COUNT(*)::int FROM worker_profiles WHERE is_verified = FALSE),
+			(SELECT COUNT(*)::int FROM worker_profiles WHERE is_verified = FALSE AND verification_status = 'pending'),
 			(SELECT COUNT(*)::int FROM service_requests),
 			(SELECT COUNT(*)::int FROM service_requests WHERE status IN ('pending', 'accepted'))
 	`
@@ -905,7 +963,7 @@ func (s *sqlStore) PendingWorkerVerifications(ctx context.Context) ([]db.WorkerC
 			'' AS category_name
 		FROM worker_profiles wp
 		INNER JOIN users u ON u.id = wp.user_id
-		WHERE wp.is_verified = FALSE
+		WHERE wp.is_verified = FALSE AND wp.verification_status = 'pending'
 		ORDER BY wp.created_at ASC
 	`
 
@@ -940,10 +998,80 @@ func (s *sqlStore) PendingWorkerVerifications(ctx context.Context) ([]db.WorkerC
 	return workers, rows.Err()
 }
 
+func (s *sqlStore) ListWorkerDocuments(ctx context.Context, workerID int64) ([]db.WorkerDocument, error) {
+	q := `
+		SELECT id, worker_id, document_type, file_url, file_name, mime_type,
+		       file_size_bytes, status, review_notes, uploaded_at, updated_at
+		FROM worker_documents
+		WHERE worker_id = $1
+		ORDER BY uploaded_at ASC, id ASC
+	`
+
+	rows, err := s.db.QueryContext(ctx, q, workerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	documents := make([]db.WorkerDocument, 0)
+	for rows.Next() {
+		var document db.WorkerDocument
+		if err = rows.Scan(
+			&document.ID,
+			&document.WorkerID,
+			&document.DocumentType,
+			&document.FileURL,
+			&document.FileName,
+			&document.MimeType,
+			&document.FileSizeBytes,
+			&document.Status,
+			&document.ReviewNotes,
+			&document.UploadedAt,
+			&document.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		documents = append(documents, document)
+	}
+
+	return documents, rows.Err()
+}
+
+func (s *sqlStore) UpsertWorkerDocument(ctx context.Context, workerID int64, document dto.UploadWorkerDocumentRequest) error {
+	q := `
+		INSERT INTO worker_documents (worker_id, document_type, file_url, file_name, mime_type, file_size_bytes, status)
+		VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+		ON CONFLICT (worker_id, document_type) DO UPDATE SET
+			file_url = EXCLUDED.file_url, file_name = EXCLUDED.file_name,
+			mime_type = EXCLUDED.mime_type, file_size_bytes = EXCLUDED.file_size_bytes,
+			status = 'pending', review_notes = '', updated_at = NOW()
+	`
+	_, err := s.db.ExecContext(ctx, q, workerID, document.DocumentType, document.FileURL, document.FileName, document.MimeType, document.FileSizeBytes)
+	return err
+}
+
+func (s *sqlStore) SubmitWorkerVerification(ctx context.Context, workerID int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err = tx.ExecContext(ctx, `UPDATE worker_profiles SET is_verified = FALSE, verification_status = 'pending', updated_at = NOW() WHERE id = $1`, workerID); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `INSERT INTO worker_verification_requests (worker_id, status) VALUES ($1, 'pending') ON CONFLICT DO NOTHING`, workerID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (s *sqlStore) VerifyWorker(ctx context.Context, workerID int64, verified bool) error {
 	q := `
 		UPDATE worker_profiles
-		SET is_verified = $1, updated_at = NOW()
+		SET is_verified = $1,
+		    verification_status = CASE WHEN $1 THEN 'approved' ELSE 'rejected' END,
+		    updated_at = NOW()
 		WHERE id = $2
 	`
 	res, err := s.db.ExecContext(ctx, q, verified, workerID)

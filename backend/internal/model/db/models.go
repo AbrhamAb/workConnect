@@ -35,8 +35,6 @@ type User struct {
 	UpdatedAt    time.Time `json:"updatedAt"`
 }
 
-
-
 type WorkerProfile struct {
 	ID                 int64     `json:"id"`
 	UserID             int64     `json:"userId"`
@@ -67,6 +65,28 @@ type WorkerCard struct {
 	IsVerified          bool    `json:"isVerified"`
 	CompletedJobs       int     `json:"completedJobs"`
 	PrimaryCategoryName string  `json:"primaryCategoryName"`
+}
+
+type WorkerDocument struct {
+	ID            int64     `json:"id"`
+	WorkerID      int64     `json:"workerId"`
+	DocumentType  string    `json:"documentType"`
+	FileURL       string    `json:"fileUrl"`
+	FileName      string    `json:"fileName"`
+	MimeType      string    `json:"mimeType"`
+	FileSizeBytes int64     `json:"fileSizeBytes"`
+	Status        string    `json:"status"`
+	ReviewNotes   string    `json:"reviewNotes"`
+	UploadedAt    time.Time `json:"uploadedAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
+}
+
+type WorkerVerificationDocument struct {
+	DocumentType  string `json:"documentType"`
+	FileURL       string `json:"fileUrl"`
+	FileName      string `json:"fileName"`
+	MimeType      string `json:"mimeType"`
+	FileSizeBytes int64  `json:"fileSizeBytes"`
 }
 
 type WorkerDetails struct {

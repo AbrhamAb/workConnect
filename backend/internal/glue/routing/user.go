@@ -217,6 +217,21 @@ func RegisterWorkConnectRoutes(r chi.Router, handler rest.Handler) {
 				Handler:     handler.VerifyWorker,
 				Middlewares: protected,
 			},
+			{
+				Method:      http.MethodGet,
+				Path:        "/workers/{workerID}/documents",
+				Handler:     handler.ListWorkerDocuments,
+				Middlewares: protected,
+			},
 		})
+	})
+
+	workerVerification := []func(http.Handler) http.Handler{
+		authMiddleware,
+		middleware.RequireRoles(db.RoleWorker),
+	}
+	RegisterRoutes(r, []Route{
+		{Method: http.MethodPost, Path: "/worker/verification/documents", Handler: handler.UploadWorkerDocument, Middlewares: workerVerification},
+		{Method: http.MethodPost, Path: "/worker/verification/submit", Handler: handler.SubmitWorkerVerification, Middlewares: workerVerification},
 	})
 }

@@ -384,6 +384,18 @@ func migrate(ctx context.Context, db *sql.DB) error {
 				('Handyman', 'handyman', 'General repair and maintenance services')
 		) AS seed(name, slug, description)
 		ON CONFLICT (slug) DO NOTHING;
+
+		INSERT INTO worker_skills (worker_id, category_id)
+		SELECT wp.id, sc.id
+		FROM worker_profiles wp
+		CROSS JOIN service_categories sc
+		WHERE sc.slug = 'handyman'
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM worker_skills ws
+			WHERE ws.worker_id = wp.id
+		  )
+		ON CONFLICT DO NOTHING;
 	`
 
 	if _, err := db.ExecContext(ctx, schema); err != nil {

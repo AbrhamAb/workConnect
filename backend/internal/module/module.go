@@ -38,6 +38,9 @@ type WorkConnectService interface {
 	WorkerDashboard(ctx context.Context, workerUserID int64) (db.WorkerDashboard, error)
 	AdminDashboard(ctx context.Context) (db.AdminDashboard, error)
 	PendingWorkerVerifications(ctx context.Context) ([]db.WorkerCard, error)
+	ListWorkerDocuments(ctx context.Context, workerID int64) ([]db.WorkerDocument, error)
+	UploadWorkerDocument(ctx context.Context, workerUserID int64, document dto.UploadWorkerDocumentRequest) error
+	SubmitWorkerVerification(ctx context.Context, workerUserID int64) error
 	VerifyWorker(ctx context.Context, workerID int64, verified bool) error
 	ListMessageConversations(ctx context.Context, userID int64) ([]db.MessageConversation, error)
 	ListMessagesByRequest(ctx context.Context, userID, requestID int64, query dto.ListMessagesQuery) ([]db.Message, error)

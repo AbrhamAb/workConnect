@@ -100,6 +100,16 @@ func (r UpdateAvailabilityRequest) Validate() error {
 	)
 }
 
+func (r UploadWorkerDocumentRequest) Validate() error {
+	return validation.ValidateStruct(&r,
+		validation.Field(&r.DocumentType, validation.Required, validation.In("government_id", "professional_certificate", "business_license", "other")),
+		validation.Field(&r.FileURL, validation.Required, validation.Length(1, 15_000_000)),
+		validation.Field(&r.FileName, validation.Required, validation.Length(1, 255)),
+		validation.Field(&r.MimeType, validation.Required, validation.In("image/png", "image/jpeg", "application/pdf")),
+		validation.Field(&r.FileSizeBytes, validation.Required, validation.Min(int64(1)), validation.Max(int64(10*1024*1024))),
+	)
+}
+
 func (r SubmitReviewRequest) Validate() error {
 	return validation.ValidateStruct(&r,
 		validation.Field(&r.Rating, validation.Required, validation.Min(1), validation.Max(5)),

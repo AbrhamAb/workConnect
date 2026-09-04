@@ -224,11 +224,15 @@ export default function WorkersPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {worker.verified && (
-                    <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
-                      Verified
-                    </span>
-                  )}
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-medium ${
+                      worker.verified
+                        ? "bg-green-100 text-green-700"
+                        : "bg-amber-100 text-amber-700"
+                    }`}
+                  >
+                    {worker.verified ? "Verified" : "Pending verification"}
+                  </span>
 
                   <button
                     type="button"
@@ -265,11 +269,21 @@ export default function WorkersPage() {
                 </div>
               </div>
 
-              <Link href={`/customer/workers/${worker.id}`}>
-                <button className="mt-6 w-full rounded-xl bg-[#1A362D] py-3 font-medium text-white transition hover:opacity-90">
-                  View Full Profile
+              {worker.verified ? (
+                <Link href={`/customer/workers/${worker.id}`}>
+                  <button className="mt-6 w-full rounded-xl bg-[#1A362D] py-3 font-medium text-white transition hover:opacity-90">
+                    View Full Profile
+                  </button>
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="mt-6 w-full rounded-xl bg-gray-100 py-3 font-medium text-gray-500"
+                >
+                  Awaiting Verification
                 </button>
-              </Link>
+              )}
             </div>
           ))
         )}

@@ -5,7 +5,11 @@ import { useEffect, useState } from "react";
 import { Avatar } from "@/components/avatar";
 import { Button } from "@/components/button";
 import { Card } from "@/components/card";
-import { getPendingWorkers, approveWorker } from "@/services/admin.service";
+import {
+  getPendingWorkers,
+  getWorkerDocuments,
+  approveWorker,
+} from "@/services/admin.service";
 
 export default function PendingWorkersPage() {
   const [workers, setWorkers] = useState([]);
@@ -22,9 +26,15 @@ export default function PendingWorkersPage() {
         setError("");
 
         const data = await getPendingWorkers();
+        const workersWithDocuments = await Promise.all(
+          data.map(async (worker) => ({
+            ...worker,
+            documents: await getWorkerDocuments(worker.workerId),
+          })),
+        );
 
         if (mounted) {
-          setWorkers(data);
+          setWorkers(workersWithDocuments);
         }
       } catch (err) {
         if (mounted) {
@@ -134,6 +144,53 @@ export default function PendingWorkersPage() {
                     {worker.completedJobs ?? 0}
                   </span>
                 </div>
+              </div>
+
+              <div className="mt-6 border-t border-gray-100 pt-5">
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Verification Documents
+                </h3>
+
+                {worker.documents?.length ? (
+                  <div className="mt-3 space-y-3">
+                    {worker.documents.map((document) => (
+                      <div
+                        key={document.id}
+                        className="rounded-lg border border-gray-100 bg-gray-50 p-3"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-gray-900">
+                              {document.fileName || document.documentType}
+                            </p>
+                            <p className="mt-1 text-xs capitalize text-gray-500">
+                              {document.documentType.replaceAll("_", " ")} · {document.status}
+                            </p>
+                          </div>
+
+                          <a
+                            href={document.fileUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="shrink-0 text-sm font-semibold text-[#1A362D] underline underline-offset-2 hover:text-[#B8860B]"
+                          >
+                            View document
+                          </a>
+                        </div>
+
+                        {document.reviewNotes && (
+                          <p className="mt-2 text-xs text-gray-500">
+                            {document.reviewNotes}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-amber-700">
+                    No documents uploaded yet.
+                  </p>
+                )}
               </div>
 
               <div className="mt-6">

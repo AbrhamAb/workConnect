@@ -1,6 +1,6 @@
 import { Card } from "@/components/card";
 
-export function GovernmentIdUpload() {
+export function GovernmentIdUpload({ file, onFileChange }) {
   return (
     <Card>
       <div className="space-y-6">
@@ -58,7 +58,13 @@ export function GovernmentIdUpload() {
             PNG, JPG or PDF • Max 10 MB
           </p>
 
-          <input type="file" className="hidden" />
+          <input
+            type="file"
+            accept="image/png,image/jpeg,application/pdf"
+            onChange={onFileChange}
+            className="hidden"
+          />
+          {file && <p className="mt-3 text-sm font-medium text-[#1A362D]">{file.name}</p>}
         </label>
       </div>
     </Card>

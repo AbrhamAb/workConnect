@@ -3,13 +3,14 @@ package persistence
 import (
 	"context"
 	"task-management-backend/internal/model/db"
+	"task-management-backend/internal/model/dto"
 )
 
 type Store interface {
 	CreateUser(ctx context.Context, fullName, email, phone, role, passwordHash string) (db.User, error)
 	GetUserByEmail(ctx context.Context, email string) (db.User, error)
 	GetUserByID(ctx context.Context, userID int64) (db.User, error)
-	CreateWorkerProfile(ctx context.Context, userID int64) error
+	CreateWorkerProfile(ctx context.Context, userID int64, primarySkill string, skills []string) error
 	ListWorkers(ctx context.Context, category, city, qTerm, sort string) ([]db.WorkerCard, error)
 	GetWorkerDetails(ctx context.Context, workerID int64) (db.WorkerDetails, error)
 	CreateServiceRequest(ctx context.Context, request db.ServiceRequest) (db.ServiceRequest, error)
@@ -36,6 +37,9 @@ type Store interface {
 	WorkerDashboard(ctx context.Context, workerUserID int64) (db.WorkerDashboard, error)
 	AdminDashboard(ctx context.Context) (db.AdminDashboard, error)
 	PendingWorkerVerifications(ctx context.Context) ([]db.WorkerCard, error)
+	ListWorkerDocuments(ctx context.Context, workerID int64) ([]db.WorkerDocument, error)
+	UpsertWorkerDocument(ctx context.Context, workerID int64, document dto.UploadWorkerDocumentRequest) error
+	SubmitWorkerVerification(ctx context.Context, workerID int64) error
 	VerifyWorker(ctx context.Context, workerID int64, verified bool) error
 	WorkerProfileByUserID(ctx context.Context, userID int64) (int64, bool, error)
 	RequestBelongsToCustomer(ctx context.Context, requestID, customerID int64) (bool, error)
