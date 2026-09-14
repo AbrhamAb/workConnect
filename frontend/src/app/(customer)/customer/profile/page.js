@@ -10,6 +10,7 @@ import FavoritesCard from "@/features/customer-profile/FavoritesCard";
 import DangerZone from "@/features/customer-profile/DangerZone";
 import { Card } from "@/components/card";
 import { getCustomerProfileData } from "@/services/customer.service";
+import { LoadingSpinner } from "@/components/loadingSpinner";
 
 export default function CustomerProfilePage() {
   const [profileData, setProfileData] = useState(null);
@@ -83,6 +84,7 @@ export default function CustomerProfilePage() {
       {loading ? (
         <Card className="rounded-2xl border border-dashed border-gray-200 p-8 text-center text-gray-500">
           Loading your profile...
+          <LoadingSpinner />
         </Card>
       ) : error ? (
         <Card className="rounded-2xl border border-red-100 bg-red-50 p-8 text-center text-red-600">

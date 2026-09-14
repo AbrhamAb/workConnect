@@ -9,6 +9,7 @@ import { ProgressBar } from "@/components/progress-bar";
 import { StatCard } from "@/components/stat-card";
 import { CustomerRequestCard } from "@/components/customer-request-card";
 import { getCustomerDashboardData } from "@/services/customer.service";
+import { LoadingSpinner } from "@/components/loadingSpinner";
 
 function formatDate(value) {
   if (!value) return "Not selected";
@@ -141,6 +142,7 @@ export default function CustomerDashboard() {
           {loading ? (
             <Card className="rounded-2xl border border-dashed border-gray-200 p-8 text-center text-gray-500">
               Loading your requests...
+              <LoadingSpinner />
             </Card>
           ) : error ? (
             <Card className="rounded-2xl border border-red-100 bg-red-50 p-8 text-center text-red-600">
@@ -177,47 +179,6 @@ export default function CustomerDashboard() {
         {/* Right Side */}
 
         <div className="space-y-6 lg:col-span-4 ">
-          {/* Trust Score */}
-
-          <Card className="relative overflow-hidden bg-[#1A362D] text-gray-600">
-            <h3 className="mb-4 text-lg font-medium">Trust Score</h3>
-
-            <div className="mb-6 flex items-baseline gap-2">
-              <span className="text-5xl font-extrabold">{trustScore}</span>
-
-              <span className="text-lg text-emerald-200">/ 100</span>
-            </div>
-
-            <div className="mb-4">
-              <ProgressBar
-                progress={trustScore}
-                colorClass="bg-[#B8860B]"
-                trackClass="bg-white/20"
-              />
-            </div>
-
-            <p className="text-sm leading-relaxed text-emerald-200">
-              You are one of our most trusted customers with an excellent
-              service history.
-            </p>
-
-            <svg
-              className="pointer-events-none absolute -bottom-8 -right-8 h-40 w-40 text-white/5"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              <path
-                d="M9 12l2 2 4-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </Card>
-
           {/* Stats */}
 
           <div className="grid grid-cols-2 gap-4">
@@ -338,6 +299,57 @@ export default function CustomerDashboard() {
                   );
                 })
               )}
+            </div>
+          </Card>
+
+          {/* Trust Score */}
+
+          <Card className="group relative overflow-hidden bg-gradient-to-br from-[#1A362D] via-[#152D25] to-[#0F201A] p-6 text-white shadow-xl ring-1 ring-white/10 transition-all duration-300 hover:shadow-2xl">
+            {/* Decorative ambient background glow */}
+            <div className="absolute -left-10 -top-10 h-32 w-32 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none"></div>
+
+            <div className="relative z-10">
+              <h3 className="mb-4 text-base font-bold uppercase tracking-wider text-emerald-100/90">
+                Trust Score
+              </h3>
+
+              <div className="mb-6 flex items-baseline gap-2">
+                <span className="text-5xl font-black tracking-tight text-white drop-shadow-sm">
+                  {trustScore}
+                </span>
+                <span className="text-lg font-medium text-emerald-200/80">
+                  / 100
+                </span>
+              </div>
+
+              <div className="mb-5">
+                <ProgressBar
+                  progress={trustScore}
+                  colorClass="bg-[#B8860B] shadow-[0_0_12px_rgba(184,134,11,0.4)]"
+                  trackClass="bg-white/10"
+                />
+              </div>
+
+              <p className="text-sm leading-relaxed text-emerald-100/80 font-normal">
+                You are one of our most trusted customers with an excellent
+                service history.
+              </p>
+
+              <svg
+                className="pointer-events-none absolute -bottom-8 -right-8 h-44 w-44 text-white/5 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <path
+                  d="M9 12l2 2 4-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </div>
           </Card>
         </div>

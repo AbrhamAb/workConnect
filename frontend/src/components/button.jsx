@@ -13,7 +13,7 @@ export function Button({
 
   const variants = {
     primary:
-      "bg-[#1A362D] text-white hover:bg-[#12261f] disabled:hover:bg-[#1A362D]",
+      "bg-[#1A362D] text-white hover:bg-[#3d6054] disabled:hover:bg-[#1A362D]",
     secondary:
       "bg-gray-100 text-gray-800 hover:bg-gray-200 disabled:hover:bg-gray-100",
     accent:

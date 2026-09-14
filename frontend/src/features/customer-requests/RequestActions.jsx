@@ -93,7 +93,7 @@ export default function RequestActions({
             type="button"
             onClick={handleCancel}
             disabled={loadingAction !== null}
-            className="w-full rounded-xl bg-red-50 py-3 font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-xl bg-red-100 py-3 font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loadingAction === "cancel" ? "Cancelling..." : "Cancel Request"}
           </button>

@@ -9,6 +9,7 @@ import ActiveJobsCard from "@/features/worker-dashboard/ActiveJobsCard";
 import ReliabilityCard from "@/features/worker-dashboard/ReliabilityCard";
 import { Card } from "@/components/card";
 import { getWorkerDashboardData } from "@/services/worker.service";
+import { LoadingSpinner } from "@/components/loadingSpinner";
 
 export default function WorkerDashboardPage() {
   const [data, setData] = useState(null);
@@ -48,6 +49,7 @@ export default function WorkerDashboardPage() {
       {loading ? (
         <Card className="rounded-2xl border border-dashed border-gray-200 p-8 text-center text-gray-500">
           Loading your dashboard...
+          <LoadingSpinner />
         </Card>
       ) : error ? (
         <Card className="rounded-2xl border border-red-100 bg-red-50 p-8 text-center text-red-600">

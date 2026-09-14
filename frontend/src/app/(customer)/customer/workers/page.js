@@ -12,6 +12,7 @@ import {
   getCurrentCustomerFavorites,
   toggleFavorite,
 } from "@/services/favorite.service";
+import { LoadingSpinner } from "@/components/loadingSpinner";
 
 const categories = [
   "All",
@@ -193,6 +194,7 @@ export default function WorkersPage() {
         {loading ? (
           <Card className="col-span-full rounded-2xl border border-dashed border-gray-200 p-8 text-center text-gray-500">
             Loading workers...
+            <LoadingSpinner />
           </Card>
         ) : error ? (
           <Card className="col-span-full rounded-2xl border border-red-100 bg-red-50 p-8 text-center text-red-600">

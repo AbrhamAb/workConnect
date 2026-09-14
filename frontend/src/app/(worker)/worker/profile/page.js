@@ -11,6 +11,7 @@ import { DangerZoneCard } from "@/features/worker-profile/DangerZoneCard";
 import { Card } from "@/components/card";
 
 import { getCurrentWorkerProfileData } from "@/services/worker.service";
+import { LoadingSpinner } from "@/components/loadingSpinner";
 
 export default function WorkerProfilePage() {
   const [worker, setWorker] = useState(null);
@@ -96,6 +97,7 @@ export default function WorkerProfilePage() {
       {loading ? (
         <Card className="rounded-2xl border border-dashed border-gray-200 p-8 text-center text-gray-500">
           Loading your profile...
+          <LoadingSpinner />
         </Card>
       ) : error ? (
         <Card className="rounded-2xl border border-red-100 bg-red-50 p-8 text-center text-red-600">

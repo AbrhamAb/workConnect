@@ -9,7 +9,7 @@ export default function WorkerBookingCard({ worker }) {
 
       <Link
         href={`/customer/requests/new/${worker.id}`}
-        className="block w-full rounded-xl bg-[#E8F5F1] py-3 text-center font-bold text-[#1A362D] transition hover:opacity-90"
+        className="block w-full rounded-xl bg-[#1A362D] py-3 text-center font-bold text-white shadow-sm transition-all duration-300 hover:bg-[#3c5e52] hover:shadow-md active:scale-[0.98]"
       >
         Request Service
       </Link>

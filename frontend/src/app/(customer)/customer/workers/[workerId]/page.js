@@ -18,6 +18,7 @@ import {
   getCurrentCustomerFavorites,
   toggleFavorite,
 } from "@/services/favorite.service";
+import { LoadingSpinner } from "@/components/loadingSpinner";
 
 function toReviewViewModel(review) {
   const date = review.createdAt
@@ -232,7 +233,7 @@ export default function WorkerProfilePage() {
         {loading ? (
           <div className="lg:col-span-12">
             <Card className="rounded-2xl border border-dashed border-gray-200 p-8 text-center text-gray-500">
-              Loading worker profile...
+              Loading worker profile... <LoadingSpinner />
             </Card>
           </div>
         ) : error ? (

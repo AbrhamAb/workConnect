@@ -12,6 +12,7 @@ import { Card } from "@/components/card";
 import { getWorkerProfileData } from "@/services/worker.service";
 import { createRequest } from "@/services/request.service";
 import { requestSchema } from "@/validation/customer/requestSchema";
+import { LoadingSpinner } from "@/components/loadingSpinner";
 
 export default function RequestServicePage() {
   const params = useParams();
@@ -183,7 +184,7 @@ export default function RequestServicePage() {
     <div className="mx-auto max-w-3xl py-8">
       {loading ? (
         <Card className="rounded-2xl border border-dashed border-gray-200 p-8 text-center text-gray-500">
-          Loading worker details...
+          Loading worker details... <LoadingSpinner />
         </Card>
       ) : error && !requestWorker ? (
         <Card className="rounded-2xl border border-red-100 bg-red-50 p-8 text-center text-red-600">

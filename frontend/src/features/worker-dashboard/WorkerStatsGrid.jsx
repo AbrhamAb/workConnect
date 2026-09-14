@@ -13,13 +13,13 @@ export default function WorkerStatsGrid({ stats, worker }) {
         }
         icon={
           <svg
-            className="h-5 w-5"
+            className="h-6 w-6 text-blue-500" // Vibrant subtle color
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
           >
             <path
-              strokeWidth={2}
+              strokeWidth={2.5}
               strokeLinecap="round"
               strokeLinejoin="round"
               d="M9 12l2 2 4-4m6 2A9 9 0 1112 3a9 9 0 019 9z"
@@ -34,13 +34,13 @@ export default function WorkerStatsGrid({ stats, worker }) {
         trend="Accepted and ready to start"
         icon={
           <svg
-            className="h-5 w-5"
+            className="h-6 w-6 text-emerald-500" // Vibrant subtle color
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
           >
             <path
-              strokeWidth={2}
+              strokeWidth={2.5}
               strokeLinecap="round"
               strokeLinejoin="round"
               d="M9 17v-6h13v6M3 7h18M5 7V5a2 2 0 012-2h10a2 2 0 012 2v2"
@@ -56,13 +56,13 @@ export default function WorkerStatsGrid({ stats, worker }) {
         trend="Waiting for your response"
         icon={
           <svg
-            className="h-5 w-5"
+            className="h-6 w-6" // Inherits white from primary card's container
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
           >
             <path
-              strokeWidth={2}
+              strokeWidth={2.5}
               strokeLinecap="round"
               strokeLinejoin="round"
               d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
@@ -76,13 +76,14 @@ export default function WorkerStatsGrid({ stats, worker }) {
         value={
           <>
             {(worker?.rating ?? 0).toFixed(1)}{" "}
-            <span className="text-lg font-medium text-gray-400">/ 5</span>
+            <span className="text-lg font-bold text-amber-500/70">/ 5</span>{" "}
+            {/* Brought the vibrant color into the "/5" */}
           </>
         }
         trend={`${worker?.totalReviews ?? 0} customer reviews`}
         icon={
           <svg
-            className="h-5 w-5 text-[#B8860B]"
+            className="h-6 w-6 text-amber-500" // Vibrant subtle color
             fill="currentColor"
             viewBox="0 0 20 20"
           >

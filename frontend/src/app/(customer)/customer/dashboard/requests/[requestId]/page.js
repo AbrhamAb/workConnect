@@ -13,6 +13,7 @@ import WorkerSummarySidebar from "@/features/customer-requests/WorkerSummarySide
 import RequestActions from "@/features/customer-requests/RequestActions";
 import { getCustomerRequestDetails } from "@/services/request.service";
 import { getReviewByRequest } from "@/services/review.service"; // NEW
+import { LoadingSpinner } from "@/components/loadingSpinner";
 
 function normalizeStatus(status) {
   switch (status) {
@@ -203,7 +204,7 @@ export default function RequestDetailsPage() {
   if (loading) {
     return (
       <Card className="rounded-2xl border border-dashed border-gray-200 p-8 text-center text-gray-500">
-        Loading request details...
+        Loading request details... <LoadingSpinner />
       </Card>
     );
   }

@@ -6,6 +6,7 @@ import RequestFilters from "@/features/worker-requests/RequestFilters";
 import WorkerRequestList from "@/features/worker-requests/WorkerRequestList";
 import { Card } from "@/components/card";
 import { getWorkerRequestListData } from "@/services/worker.service";
+import { LoadingSpinner } from "@/components/loadingSpinner";
 
 export default function WorkerRequestsPage() {
   const [data, setData] = useState(null);
@@ -66,6 +67,7 @@ export default function WorkerRequestsPage() {
     return (
       <Card className="rounded-2xl border border-dashed border-gray-200 p-8 text-center text-gray-500">
         Loading your requests...
+        <LoadingSpinner />
       </Card>
     );
   }
