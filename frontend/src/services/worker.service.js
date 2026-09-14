@@ -72,7 +72,9 @@ function mapWorkerCard(worker) {
     return null;
   }
 
-  const workerId = toLegacyWorkerId(worker.workerId ?? worker.id ?? worker.userId);
+  const workerId = toLegacyWorkerId(
+    worker.workerId ?? worker.id ?? worker.userId,
+  );
 
   return {
     id: workerId,
@@ -83,13 +85,17 @@ function mapWorkerCard(worker) {
     name: worker.fullName || worker.name || "Worker",
 
     headline: worker.headline || "Skilled professional",
-    primarySkill: worker.primaryCategoryName || worker.primarySkill || "Skilled professional",
+    primarySkill:
+      worker.primaryCategoryName ||
+      worker.primarySkill ||
+      "Skilled professional",
     city: worker.city || "Addis Ababa",
     hourlyRateEtb: worker.hourlyRateEtb ?? worker.hourlyRateETB ?? 0,
     rating: worker.ratingAverage ?? worker.rating ?? 0,
     totalReviews: worker.ratingCount ?? worker.totalReviews ?? 0,
     verified: worker.isVerified ?? worker.verified ?? false,
-    availability: worker.availabilityStatus || worker.availability || "available",
+    availability:
+      worker.availabilityStatus || worker.availability || "available",
     completedJobs: worker.completedJobs ?? 0,
 
     profileImage: worker.profileImage || PLACEHOLDER_AVATAR,
@@ -126,7 +132,8 @@ function mergeCurrentSession(worker) {
     return worker;
   }
 
-  const sessionWorkerProfileId = session.workerProfileId ?? toWorkerProfileId(worker.id);
+  const sessionWorkerProfileId =
+    session.workerProfileId ?? toWorkerProfileId(worker.id);
 
   return {
     ...worker,
@@ -148,13 +155,20 @@ function normalizeRequest(request) {
   }
 
   const requestId = request.id ?? request.requestId;
-  const preferredAt = request.preferredAt ? new Date(request.preferredAt) : null;
-  const preferredDate = preferredAt && !Number.isNaN(preferredAt.getTime())
-    ? preferredAt.toISOString().split("T")[0]
+  const preferredAt = request.preferredAt
+    ? new Date(request.preferredAt)
     : null;
-  const preferredTime = preferredAt && !Number.isNaN(preferredAt.getTime())
-    ? preferredAt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
-    : null;
+  const preferredDate =
+    preferredAt && !Number.isNaN(preferredAt.getTime())
+      ? preferredAt.toISOString().split("T")[0]
+      : null;
+  const preferredTime =
+    preferredAt && !Number.isNaN(preferredAt.getTime())
+      ? preferredAt.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : null;
 
   return {
     id: requestId ? `req-${requestId}` : null,
@@ -164,7 +178,8 @@ function normalizeRequest(request) {
 
     title: request.title || "Service Request",
     description: request.description || "No description provided.",
-    location: request.locationAddress || request.location || "Location not specified",
+    location:
+      request.locationAddress || request.location || "Location not specified",
     preferredDate,
     preferredTime,
     budget: request.budgetEtb ?? request.budget ?? null,
@@ -192,7 +207,9 @@ function buildRequestCard(request) {
     title: request.title,
     location: request.location,
     date: formatRequestDate(request),
-    budget: request.budget ? `ETB ${Number(request.budget).toLocaleString()}` : "Negotiable",
+    budget: request.budget
+      ? `ETB ${Number(request.budget).toLocaleString()}`
+      : "Negotiable",
     status: request.status,
     statusLabel: formatRequestStatus(request.status),
     description: request.description,
@@ -216,7 +233,8 @@ async function getBackendSession() {
     const refreshedSession = {
       ...session,
       ...(response.user || {}),
-      workerProfileId: response.workerProfileId ?? session.workerProfileId ?? null,
+      workerProfileId:
+        response.workerProfileId ?? session.workerProfileId ?? null,
       token: session.token,
     };
 
@@ -229,14 +247,14 @@ async function getBackendSession() {
 }
 
 export async function getCurrentWorker() {
-  
   const session = await getBackendSession();
 
   if (!session || session.role !== "worker") {
     return null;
   }
 
-  const workerProfileId = session.workerProfileId ?? toWorkerProfileId(session.id);
+  const workerProfileId =
+    session.workerProfileId ?? toWorkerProfileId(session.id);
 
   if (!workerProfileId) {
     return mergeCurrentSession(null);
@@ -248,7 +266,6 @@ export async function getCurrentWorker() {
 }
 
 export async function getWorkers() {
-  
   const response = await apiGet("/workers");
   const workers = response?.workers || [];
 
@@ -266,7 +283,6 @@ export async function getWorkers() {
 }
 
 export async function getWorkerById(workerId) {
-  
   const numericWorkerId = toWorkerProfileId(workerId);
 
   if (!numericWorkerId) {
@@ -274,18 +290,38 @@ export async function getWorkerById(workerId) {
   }
 
   const response = await apiGet(`/workers/${numericWorkerId}`);
+
+  console.log("=== GET WORKER BY ID RESPONSE ===");
+  console.log("Raw response:", response);
+  console.log("response.worker:", response?.worker);
+  console.log("response.worker.profileImage:", response?.worker?.profileImage);
+  console.log(
+    "response.worker.profilePicture:",
+    response?.worker?.profilePicture,
+  );
+  console.log("response.worker.worker:", response?.worker?.worker);
+  console.log(
+    "response.worker.worker.profileImage:",
+    response?.worker?.worker?.profileImage,
+  );
+  console.log(
+    "response.worker.worker.profilePicture:",
+    response?.worker?.worker?.profilePicture,
+  );
+  console.log("=================================");
+
   return mapWorkerDetails(response);
 }
 
 export async function updateWorker(updates) {
-  
   const currentUser = getCurrentUser();
 
   if (!currentUser || currentUser.role !== "worker") {
     return null;
   }
 
-  const workerProfileId = currentUser.workerProfileId ?? toWorkerProfileId(currentUser.id);
+  const workerProfileId =
+    currentUser.workerProfileId ?? toWorkerProfileId(currentUser.id);
   const updatedWorker = {
     ...(await getWorkerById(workerProfileId)),
     ...updates,
@@ -301,7 +337,6 @@ export async function updateWorker(updates) {
 }
 
 export async function getWorkerRequests() {
-  
   const session = await getBackendSession();
 
   if (!session || session.role !== "worker") {
@@ -313,7 +348,6 @@ export async function getWorkerRequests() {
 }
 
 export async function getWorkerRequestDetails(requestId) {
-  
   const numericRequestId = Number(String(requestId).replace(/^req-/, ""));
 
   if (Number.isNaN(numericRequestId) || numericRequestId < 1) {
@@ -346,7 +380,6 @@ export async function getWorkerRequestDetails(requestId) {
 }
 
 export async function getWorkerRequestListData() {
-  
   const worker = await getCurrentWorker();
 
   if (!worker) {
@@ -365,7 +398,6 @@ export async function getWorkerRequestListData() {
 }
 
 export async function searchWorkers(query) {
-  
   const workers = await getWorkers();
 
   if (!query?.trim()) {
@@ -385,13 +417,11 @@ export async function searchWorkers(query) {
 }
 
 export async function getWorkersByProfession(primarySkill) {
-  
   const workers = await getWorkers();
   return workers.filter((worker) => worker.primarySkill === primarySkill);
 }
 
 export async function getWorkerDashboardData() {
-  
   const worker = await getCurrentWorker();
 
   if (!worker) {
@@ -405,10 +435,18 @@ export async function getWorkerDashboardData() {
 
   const stats = {
     totalRequests: requests.length,
-    pendingRequests: requests.filter((request) => request.status === "pending").length,
-    acceptedRequests: requests.filter((request) => request.status === "accepted").length,
-    inProgressRequests: requests.filter((request) => request.status === "in_progress").length,
-    completedRequests: requests.filter((request) => request.status === "completed" || request.status === "confirmed").length,
+    pendingRequests: requests.filter((request) => request.status === "pending")
+      .length,
+    acceptedRequests: requests.filter(
+      (request) => request.status === "accepted",
+    ).length,
+    inProgressRequests: requests.filter(
+      (request) => request.status === "in_progress",
+    ).length,
+    completedRequests: requests.filter(
+      (request) =>
+        request.status === "completed" || request.status === "confirmed",
+    ).length,
   };
 
   return {
@@ -426,7 +464,6 @@ export async function getWorkerPortfolio(workerId) {
 }
 
 export async function getWorkerProfileData(workerId) {
-  
   const worker = await getWorkerById(workerId);
 
   if (!worker) {
@@ -454,7 +491,6 @@ export async function submitWorkerVerification() {
 }
 
 export async function getWorkerAnalyticsData() {
-  
   const worker = await getCurrentWorker();
 
   if (!worker) {
@@ -468,7 +504,8 @@ export async function getWorkerAnalyticsData() {
   ]);
 
   const completedJobs = requests.filter(
-    (request) => request.status === "completed" || request.status === "confirmed",
+    (request) =>
+      request.status === "completed" || request.status === "confirmed",
   );
 
   const achievements = [
@@ -486,7 +523,8 @@ export async function getWorkerAnalyticsData() {
     },
     {
       icon: "✅",
-      title: worker.rating >= 4.8 ? "Top Rated Worker" : "Consistently Reliable",
+      title:
+        worker.rating >= 4.8 ? "Top Rated Worker" : "Consistently Reliable",
       description:
         worker.rating >= 4.8
           ? "Maintain a rating above 4.8."
@@ -517,7 +555,6 @@ export async function getWorkerAnalyticsData() {
 }
 
 export async function getWorkerPortfolioData() {
-  
   const worker = await getCurrentWorker();
 
   if (!worker) {
@@ -533,7 +570,6 @@ export async function getWorkerPortfolioData() {
 }
 
 export async function getCurrentWorkerProfileData() {
-  
   const worker = await getCurrentWorker();
 
   if (!worker) {

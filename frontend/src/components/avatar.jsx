@@ -1,18 +1,34 @@
 import Image from "next/image";
+
 import { cn } from "@/lib/utils";
 
 export function Avatar({ src, alt = "Avatar", size = "md", className }) {
   const sizes = {
-    sm: "w-8 h-8",
-    md: "w-10 h-10",
-    lg: "w-14 h-14",
+    sm: {
+      className: "h-8 w-8",
+      pixels: 32,
+    },
+    md: {
+      className: "h-10 w-10",
+      pixels: 40,
+    },
+    lg: {
+      className: "h-14 w-14",
+      pixels: 56,
+    },
+    "2xl": {
+      className: "h-20 w-20",
+      pixels: 80,
+    },
   };
+
+  const avatarSize = sizes[size] || sizes.md;
 
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-full bg-gray-200 shrink-0",
-        sizes[size],
+        "relative shrink-0 overflow-hidden rounded-full bg-gray-200",
+        avatarSize.className,
         className,
       )}
     >
@@ -21,7 +37,7 @@ export function Avatar({ src, alt = "Avatar", size = "md", className }) {
           src={src}
           alt={alt}
           fill
-          sizes={`${size === "lg" ? 56 : size === "sm" ? 32 : 40}px`}
+          sizes={`${avatarSize.pixels}px`}
           className="object-cover"
         />
       ) : (
@@ -30,9 +46,10 @@ export function Avatar({ src, alt = "Avatar", size = "md", className }) {
           fill="currentColor"
           viewBox="0 0 24 24"
         >
-          <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
+          {" "}
+          <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />{" "}
         </svg>
-      )}
+      )}{" "}
     </div>
   );
 }

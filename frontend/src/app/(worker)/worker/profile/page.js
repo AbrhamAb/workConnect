@@ -105,6 +105,7 @@ export default function WorkerProfilePage() {
         </Card>
       ) : profileData ? (
         <>
+          {console.log("Worker profile image:", worker)}
           <WorkerProfileHeader worker={profileData} />
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
