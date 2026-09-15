@@ -29,6 +29,7 @@ type User struct {
 	Email        string    `json:"email"`
 	Phone        string    `json:"phone"`
 	Role         string    `json:"role"`
+	ProfileImage string    `json:"profileImage,omitempty"`
 	IsActive     bool      `json:"isActive"`
 	PasswordHash string    `json:"-"`
 	CreatedAt    time.Time `json:"createdAt"`
@@ -56,6 +57,7 @@ type WorkerCard struct {
 	WorkerID            int64   `json:"workerId"`
 	UserID              int64   `json:"userId"`
 	FullName            string  `json:"fullName"`
+	ProfileImage        string  `json:"profileImage,omitempty"`
 	Headline            string  `json:"headline"`
 	City                string  `json:"city"`
 	HourlyRateETB       float64 `json:"hourlyRateEtb"`
@@ -108,6 +110,7 @@ type ServiceRequest struct {
 	LocationAddress  string     `json:"locationAddress"`
 	PreferredAt      *time.Time `json:"preferredAt,omitempty"`
 	BudgetETB        float64    `json:"budgetEtb"`
+	Photos           []string   `json:"photos,omitempty"`
 	Status           string     `json:"status"`
 	WorkerDecisionAt *time.Time `json:"workerDecisionAt,omitempty"`
 	CreatedAt        time.Time  `json:"createdAt"`

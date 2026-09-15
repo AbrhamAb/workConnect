@@ -2,8 +2,10 @@ import { Avatar } from "@/components/avatar";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { Card } from "@/components/card";
+import { useRef } from "react";
 
-export function WorkerProfileHeader({ worker }) {
+export function WorkerProfileHeader({ worker, onPhotoSelected }) {
+  const fileInputRef = useRef(null);
   const isAvailable = worker?.availability === "Available";
 
   return (
@@ -93,7 +95,22 @@ export function WorkerProfileHeader({ worker }) {
           </div>
         </div>
 
-        <Button variant="secondary">Change Photo</Button>
+        <>
+          <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
+            Change Photo
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) onPhotoSelected?.(file);
+              event.target.value = "";
+            }}
+          />
+        </>
       </div>
     </Card>
   );

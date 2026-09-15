@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost } from "./api.service";
+import { apiGet, apiPatch, apiPost, fileToDataUrl } from "./api.service";
 import { getCurrentUser } from "./auth.service";
 import { getWorkerById } from "./worker.service";
 import { findMany, findOne, insertOne, updateOne, deleteOne } from "./storage.service";
@@ -185,6 +185,7 @@ export async function createRequest(data) {
     }
   }
 
+  const photos = await Promise.all((data.photos || []).map(fileToDataUrl));
   const response = await apiPost("/customer/requests", {
     workerId,
     title: data.title,
@@ -192,6 +193,7 @@ export async function createRequest(data) {
     locationAddress: data.location,
     preferredAt,
     budgetEtb: Number(data.budget) || 0,
+    photos,
   });
 
   if (!response?.request && !response?.id) {

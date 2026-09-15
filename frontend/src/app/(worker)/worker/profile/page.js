@@ -12,6 +12,8 @@ import { Card } from "@/components/card";
 
 import { getCurrentWorkerProfileData } from "@/services/worker.service";
 import { LoadingSpinner } from "@/components/loadingSpinner";
+import { apiPatch, fileToDataUrl } from "@/services/api.service";
+import { getCurrentUser, setCurrentUser } from "@/services/auth.service";
 
 export default function WorkerProfilePage() {
   const [worker, setWorker] = useState(null);
@@ -105,8 +107,20 @@ export default function WorkerProfilePage() {
         </Card>
       ) : profileData ? (
         <>
-          {console.log("Worker profile image:", worker)}
-          <WorkerProfileHeader worker={profileData} />
+          <WorkerProfileHeader
+            worker={profileData}
+            onPhotoSelected={async (file) => {
+              try {
+                const profileImage = await fileToDataUrl(file);
+                const response = await apiPatch("/auth/me/profile-image", { profileImage });
+                const updatedUser = response.user || response;
+                setCurrentUser({ ...getCurrentUser(), ...updatedUser });
+                setWorker((current) => ({ ...current, profileImage }));
+              } catch (err) {
+                setError(err.message || "Unable to update your profile photo.");
+              }
+            }}
+          />
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <AccountInformationCard

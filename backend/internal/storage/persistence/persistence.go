@@ -10,6 +10,7 @@ type Store interface {
 	CreateUser(ctx context.Context, fullName, email, phone, role, passwordHash string) (db.User, error)
 	GetUserByEmail(ctx context.Context, email string) (db.User, error)
 	GetUserByID(ctx context.Context, userID int64) (db.User, error)
+	UpdateProfileImage(ctx context.Context, userID int64, profileImage string) (db.User, error)
 	ListUsers(ctx context.Context) ([]db.User, error)
 	CreateWorkerProfile(ctx context.Context, userID int64, primarySkill string, skills []string) error
 	ListWorkers(ctx context.Context, category, city, qTerm, sort string) ([]db.WorkerCard, error)

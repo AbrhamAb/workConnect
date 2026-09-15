@@ -15,6 +15,10 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+type UpdateProfileRequest struct {
+	ProfileImage string `json:"profileImage"`
+}
+
 type UserLoginResponse struct {
 	ID       int64  `json:"id"`
 	FullName string `json:"fullName"`
@@ -29,13 +33,14 @@ type WorkerSearchQuery struct {
 }
 
 type CreateServiceRequest struct {
-	WorkerID        int64   `json:"workerId"`
-	CategoryID      int64   `json:"categoryId"`
-	Title           string  `json:"title"`
-	Description     string  `json:"description"`
-	LocationAddress string  `json:"locationAddress"`
-	PreferredAt     string  `json:"preferredAt"`
-	BudgetETB       float64 `json:"budgetEtb"`
+	WorkerID        int64    `json:"workerId"`
+	CategoryID      int64    `json:"categoryId"`
+	Title           string   `json:"title"`
+	Description     string   `json:"description"`
+	LocationAddress string   `json:"locationAddress"`
+	PreferredAt     string   `json:"preferredAt"`
+	BudgetETB       float64  `json:"budgetEtb"`
+	Photos          []string `json:"photos"`
 }
 
 type WorkerDecisionRequest struct {

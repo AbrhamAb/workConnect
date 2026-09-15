@@ -48,6 +48,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 				email_verified BOOLEAN NOT NULL DEFAULT FALSE,
 				phone_verified BOOLEAN NOT NULL DEFAULT FALSE,
 			password_hash TEXT NOT NULL,
+			profile_image_url TEXT NOT NULL DEFAULT '',
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
@@ -157,11 +158,15 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			location_address VARCHAR(255) NOT NULL,
 			preferred_at TIMESTAMPTZ,
 			budget_etb NUMERIC(12,2) NOT NULL DEFAULT 0,
+			photos JSONB NOT NULL DEFAULT '[]'::jsonb,
 			status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'completed', 'cancelled')),
 			worker_decision_at TIMESTAMPTZ,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
+
+		ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image_url TEXT NOT NULL DEFAULT '';
+		ALTER TABLE service_requests ADD COLUMN IF NOT EXISTS photos JSONB NOT NULL DEFAULT '[]'::jsonb;
 
 		CREATE TABLE IF NOT EXISTS reviews (
 			id BIGSERIAL PRIMARY KEY,

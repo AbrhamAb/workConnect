@@ -11,6 +11,8 @@ import DangerZone from "@/features/customer-profile/DangerZone";
 import { Card } from "@/components/card";
 import { getCustomerProfileData } from "@/services/customer.service";
 import { LoadingSpinner } from "@/components/loadingSpinner";
+import { apiPatch, fileToDataUrl } from "@/services/api.service";
+import { getCurrentUser, setCurrentUser } from "@/services/auth.service";
 
 export default function CustomerProfilePage() {
   const [profileData, setProfileData] = useState(null);
@@ -92,7 +94,20 @@ export default function CustomerProfilePage() {
         </Card>
       ) : customer ? (
         <>
-          <ProfileHeader customer={customer} />
+          <ProfileHeader
+            customer={customer}
+            onPhotoSelected={async (file) => {
+              try {
+                const profileImage = await fileToDataUrl(file);
+                const response = await apiPatch("/auth/me/profile-image", { profileImage });
+                const updatedUser = response.user || response;
+                setCurrentUser({ ...getCurrentUser(), ...updatedUser });
+                handleCustomerUpdated(updatedUser);
+              } catch (err) {
+                setError(err.message || "Unable to update your profile photo.");
+              }
+            }}
+          />
 
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
             <div className="space-y-6 lg:col-span-8">

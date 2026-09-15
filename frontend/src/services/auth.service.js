@@ -9,10 +9,12 @@ export function setCurrentUser(user) {
 
   if (!user) {
     localStorage.removeItem(CURRENT_USER_KEY);
+    window.dispatchEvent(new Event("workconnect-user-updated"));
     return;
   }
 
   localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+  window.dispatchEvent(new Event("workconnect-user-updated"));
 }
 
 export function getCurrentUser() {

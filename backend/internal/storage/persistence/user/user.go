@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -28,11 +29,12 @@ func (s *sqlStore) CreateUser(ctx context.Context, fullName, email, phone, role,
 	q := `
 		INSERT INTO users (full_name, email, phone, role, password_hash)
 		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, full_name, email, phone, role, is_active, password_hash, created_at, updated_at
+		RETURNING id, full_name, email, phone, role, is_active, password_hash, profile_image_url, created_at, updated_at
 	`
 
 	var user db.User
-	err := s.db.QueryRowContext(ctx, q, fullName, email, phone, role, passwordHash).Scan(
+	var err error
+	err = s.db.QueryRowContext(ctx, q, fullName, email, phone, role, passwordHash).Scan(
 		&user.ID,
 		&user.FullName,
 		&user.Email,
@@ -40,6 +42,7 @@ func (s *sqlStore) CreateUser(ctx context.Context, fullName, email, phone, role,
 		&user.Role,
 		&user.IsActive,
 		&user.PasswordHash,
+		&user.ProfileImage,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -48,7 +51,7 @@ func (s *sqlStore) CreateUser(ctx context.Context, fullName, email, phone, role,
 
 func (s *sqlStore) GetUserByEmail(ctx context.Context, email string) (db.User, error) {
 	query := `
-		SELECT id, full_name, email, phone, role, is_active, password_hash, created_at, updated_at
+		SELECT id, full_name, email, phone, role, is_active, password_hash, profile_image_url, created_at, updated_at
 		FROM users
 		WHERE email = $1
 	`
@@ -63,6 +66,7 @@ func (s *sqlStore) GetUserByEmail(ctx context.Context, email string) (db.User, e
 		&user.Role,
 		&user.IsActive,
 		&user.PasswordHash,
+		&user.ProfileImage,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -80,7 +84,7 @@ func (s *sqlStore) GetUserByEmail(ctx context.Context, email string) (db.User, e
 
 func (s *sqlStore) GetUserByID(ctx context.Context, userID int64) (db.User, error) {
 	q := `
-		SELECT id, full_name, email, phone, role, is_active, password_hash, created_at, updated_at
+		SELECT id, full_name, email, phone, role, is_active, password_hash, profile_image_url, created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`
@@ -94,6 +98,7 @@ func (s *sqlStore) GetUserByID(ctx context.Context, userID int64) (db.User, erro
 		&user.Role,
 		&user.IsActive,
 		&user.PasswordHash,
+		&user.ProfileImage,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -102,7 +107,7 @@ func (s *sqlStore) GetUserByID(ctx context.Context, userID int64) (db.User, erro
 
 func (s *sqlStore) ListUsers(ctx context.Context) ([]db.User, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, full_name, email, phone, role, is_active, password_hash, created_at, updated_at
+		SELECT id, full_name, email, phone, role, is_active, password_hash, profile_image_url, created_at, updated_at
 		FROM users
 		ORDER BY created_at DESC
 	`)
@@ -114,13 +119,29 @@ func (s *sqlStore) ListUsers(ctx context.Context) ([]db.User, error) {
 	users := make([]db.User, 0)
 	for rows.Next() {
 		var user db.User
-		if err = rows.Scan(&user.ID, &user.FullName, &user.Email, &user.Phone, &user.Role, &user.IsActive, &user.PasswordHash, &user.CreatedAt, &user.UpdatedAt); err != nil {
+		if err = rows.Scan(&user.ID, &user.FullName, &user.Email, &user.Phone, &user.Role, &user.IsActive, &user.PasswordHash, &user.ProfileImage, &user.CreatedAt, &user.UpdatedAt); err != nil {
 			return nil, err
 		}
 		user.PasswordHash = ""
 		users = append(users, user)
 	}
 	return users, rows.Err()
+}
+
+func (s *sqlStore) UpdateProfileImage(ctx context.Context, userID int64, profileImage string) (db.User, error) {
+	q := `
+		UPDATE users
+		SET profile_image_url = $2, updated_at = NOW()
+		WHERE id = $1
+		RETURNING id, full_name, email, phone, role, is_active, password_hash, profile_image_url, created_at, updated_at
+	`
+
+	var user db.User
+	err := s.db.QueryRowContext(ctx, q, userID, profileImage).Scan(
+		&user.ID, &user.FullName, &user.Email, &user.Phone, &user.Role,
+		&user.IsActive, &user.PasswordHash, &user.ProfileImage, &user.CreatedAt, &user.UpdatedAt,
+	)
+	return user, err
 }
 
 func (s *sqlStore) CreateWorkerProfile(ctx context.Context, userID int64, primarySkill string, skills []string) error {
@@ -196,6 +217,7 @@ func (s *sqlStore) ListWorkers(ctx context.Context, category, city, qTerm, sort 
 			wp.id,
 			wp.user_id,
 			u.full_name,
+			u.profile_image_url,
 			wp.headline,
 			wp.city,
 			wp.hourly_rate_etb,
@@ -263,6 +285,7 @@ func (s *sqlStore) ListWorkers(ctx context.Context, category, city, qTerm, sort 
 			&worker.WorkerID,
 			&worker.UserID,
 			&worker.FullName,
+			&worker.ProfileImage,
 			&worker.Headline,
 			&worker.City,
 			&worker.HourlyRateETB,
@@ -287,6 +310,7 @@ func (s *sqlStore) GetWorkerDetails(ctx context.Context, workerID int64) (db.Wor
 			wp.id,
 			wp.user_id,
 			u.full_name,
+			u.profile_image_url,
 			wp.headline,
 			wp.city,
 			wp.hourly_rate_etb,
@@ -312,6 +336,7 @@ func (s *sqlStore) GetWorkerDetails(ctx context.Context, workerID int64) (db.Wor
 		&details.Worker.WorkerID,
 		&details.Worker.UserID,
 		&details.Worker.FullName,
+		&details.Worker.ProfileImage,
 		&details.Worker.Headline,
 		&details.Worker.City,
 		&details.Worker.HourlyRateETB,
@@ -380,14 +405,20 @@ func (s *sqlStore) CreateServiceRequest(ctx context.Context, request db.ServiceR
 			location_address,
 			preferred_at,
 			budget_etb,
+			photos,
 			status
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		RETURNING id, reference_code, customer_id, worker_id, category_id, title, description, location_address, preferred_at, budget_etb, status, worker_decision_at, created_at, updated_at
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		RETURNING id, reference_code, customer_id, worker_id, category_id, title, description, location_address, preferred_at, budget_etb, photos, status, worker_decision_at, created_at, updated_at
 	`
+	photos, err := json.Marshal(request.Photos)
+	if err != nil {
+		return db.ServiceRequest{}, err
+	}
 
 	var out db.ServiceRequest
-	err := s.db.QueryRowContext(
+	var photosJSON []byte
+	err = s.db.QueryRowContext(
 		ctx,
 		q,
 		request.ReferenceCode,
@@ -399,6 +430,7 @@ func (s *sqlStore) CreateServiceRequest(ctx context.Context, request db.ServiceR
 		request.LocationAddress,
 		request.PreferredAt,
 		request.BudgetETB,
+		photos,
 		request.Status,
 	).Scan(
 		&out.ID,
@@ -411,12 +443,21 @@ func (s *sqlStore) CreateServiceRequest(ctx context.Context, request db.ServiceR
 		&out.LocationAddress,
 		&out.PreferredAt,
 		&out.BudgetETB,
+		&photosJSON,
 		&out.Status,
 		&out.WorkerDecisionAt,
 		&out.CreatedAt,
 		&out.UpdatedAt,
 	)
-	return out, err
+	if err != nil {
+		return out, err
+	}
+	if len(photosJSON) > 0 {
+		if err = json.Unmarshal(photosJSON, &out.Photos); err != nil {
+			return out, err
+		}
+	}
+	return out, nil
 }
 
 func (s *sqlStore) GetServiceRequestViewByID(ctx context.Context, requestID int64) (db.ServiceRequestView, error) {
@@ -432,6 +473,7 @@ func (s *sqlStore) GetServiceRequestViewByID(ctx context.Context, requestID int6
 			sr.location_address,
 			sr.preferred_at,
 			sr.budget_etb,
+			sr.photos,
 			sr.status,
 			sr.worker_decision_at,
 			sr.created_at,
@@ -449,6 +491,7 @@ func (s *sqlStore) GetServiceRequestViewByID(ctx context.Context, requestID int6
 	`
 
 	var item db.ServiceRequestView
+	var photosJSON []byte
 	err := s.db.QueryRowContext(ctx, q, requestID).Scan(
 		&item.ID,
 		&item.ReferenceCode,
@@ -460,6 +503,7 @@ func (s *sqlStore) GetServiceRequestViewByID(ctx context.Context, requestID int6
 		&item.LocationAddress,
 		&item.PreferredAt,
 		&item.BudgetETB,
+		&photosJSON,
 		&item.Status,
 		&item.WorkerDecisionAt,
 		&item.CreatedAt,
@@ -469,7 +513,15 @@ func (s *sqlStore) GetServiceRequestViewByID(ctx context.Context, requestID int6
 		&item.CustomerName,
 		&item.CustomerPhone,
 	)
-	return item, err
+	if err != nil {
+		return item, err
+	}
+	if len(photosJSON) > 0 {
+		if err = json.Unmarshal(photosJSON, &item.Photos); err != nil {
+			return item, err
+		}
+	}
+	return item, nil
 }
 
 func (s *sqlStore) ListCustomerRequests(ctx context.Context, customerID int64) ([]db.ServiceRequestView, error) {
@@ -485,6 +537,7 @@ func (s *sqlStore) ListCustomerRequests(ctx context.Context, customerID int64) (
 			sr.location_address,
 			sr.preferred_at,
 			sr.budget_etb,
+			sr.photos,
 			sr.status,
 			sr.worker_decision_at,
 			sr.created_at,
@@ -518,6 +571,7 @@ func (s *sqlStore) ListWorkerRequests(ctx context.Context, workerUserID int64) (
 			sr.location_address,
 			sr.preferred_at,
 			sr.budget_etb,
+			sr.photos,
 			sr.status,
 			sr.worker_decision_at,
 			sr.created_at,
@@ -541,7 +595,7 @@ func (s *sqlStore) ListWorkerRequests(ctx context.Context, workerUserID int64) (
 func (s *sqlStore) ListAllServiceRequests(ctx context.Context) ([]db.ServiceRequestView, error) {
 	q := `
 		SELECT sr.id, sr.reference_code, sr.customer_id, sr.worker_id, sr.category_id,
-			sr.title, sr.description, sr.location_address, sr.preferred_at, sr.budget_etb,
+			sr.title, sr.description, sr.location_address, sr.preferred_at, sr.budget_etb, sr.photos,
 			sr.status, sr.worker_decision_at, sr.created_at, sr.updated_at, sc.name,
 			wu.full_name AS worker_name, cu.full_name AS customer_name, cu.phone AS customer_phone
 		FROM service_requests sr
@@ -775,7 +829,7 @@ func (s *sqlStore) UpsertMessageConversation(ctx context.Context, requestID, cus
 	qRead := `
 		INSERT INTO message_conversation_reads (conversation_id, user_id, last_read_at)
 		VALUES ($1, $2, NOW()), ($1, $3, NOW())
-		ON CONFLICT (conversation_id, user_id) DO NOTHING
+				sr.photos, sr.status, sr.worker_decision_at, sr.created_at, sr.updated_at, sc.name,
 	`
 	if _, err := s.db.ExecContext(ctx, qRead, conversationID, customerUserID, workerUserID); err != nil {
 		return 0, err
@@ -1155,6 +1209,7 @@ func (s *sqlStore) scanServiceRequests(ctx context.Context, q string, args ...an
 	items := make([]db.ServiceRequestView, 0)
 	for rows.Next() {
 		var item db.ServiceRequestView
+		var photosJSON []byte
 		if err = rows.Scan(
 			&item.ID,
 			&item.ReferenceCode,
@@ -1166,6 +1221,7 @@ func (s *sqlStore) scanServiceRequests(ctx context.Context, q string, args ...an
 			&item.LocationAddress,
 			&item.PreferredAt,
 			&item.BudgetETB,
+			&photosJSON,
 			&item.Status,
 			&item.WorkerDecisionAt,
 			&item.CreatedAt,
@@ -1176,6 +1232,11 @@ func (s *sqlStore) scanServiceRequests(ctx context.Context, q string, args ...an
 			&item.CustomerPhone,
 		); err != nil {
 			return nil, err
+		}
+		if len(photosJSON) > 0 {
+			if err = json.Unmarshal(photosJSON, &item.Photos); err != nil {
+				return nil, err
+			}
 		}
 		items = append(items, item)
 	}

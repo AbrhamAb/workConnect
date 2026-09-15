@@ -114,6 +114,20 @@ func (m *WorkConnectModule) GetProfile(ctx context.Context, userID int64) (db.Us
 	return user, nil
 }
 
+func (m *WorkConnectModule) UpdateProfileImage(ctx context.Context, userID int64, req dto.UpdateProfileRequest) (db.User, error) {
+	if err := req.Validate(); err != nil {
+		return db.User{}, err
+	}
+
+	user, err := m.store.UpdateProfileImage(ctx, userID, req.ProfileImage)
+	if err != nil {
+		return db.User{}, err
+	}
+
+	user.PasswordHash = ""
+	return user, nil
+}
+
 func (m *WorkConnectModule) ListUsers(ctx context.Context) ([]db.User, error) {
 	return m.store.ListUsers(ctx)
 }
@@ -168,6 +182,7 @@ func (m *WorkConnectModule) CreateServiceRequest(ctx context.Context, customerID
 		Description:     strings.TrimSpace(req.Description),
 		LocationAddress: strings.TrimSpace(req.LocationAddress),
 		BudgetETB:       req.BudgetETB,
+		Photos:          req.Photos,
 		Status:          db.RequestStatusPending,
 	}
 

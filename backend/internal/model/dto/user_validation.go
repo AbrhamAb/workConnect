@@ -85,6 +85,13 @@ func (r CreateServiceRequest) Validate() error {
 		validation.Field(&r.Description, validation.Required, validation.Length(10, 2000)),
 		validation.Field(&r.LocationAddress, validation.Required, validation.Length(4, 255)),
 		validation.Field(&r.BudgetETB, validation.Min(0.0)),
+		validation.Field(&r.Photos, validation.Length(0, 5)),
+	)
+}
+
+func (r UpdateProfileRequest) Validate() error {
+	return validation.ValidateStruct(&r,
+		validation.Field(&r.ProfileImage, validation.Required, validation.Length(1, 8*1024*1024)),
 	)
 }
 

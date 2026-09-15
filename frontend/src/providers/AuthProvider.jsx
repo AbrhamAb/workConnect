@@ -18,10 +18,16 @@ export default function AuthProvider({ children }) {
       initialize();
     }
 
+    function handleUserUpdated() {
+      initialize();
+    }
+
     window.addEventListener("workconnect-auth-expired", handleAuthExpired);
+    window.addEventListener("workconnect-user-updated", handleUserUpdated);
 
     return () => {
       window.removeEventListener("workconnect-auth-expired", handleAuthExpired);
+      window.removeEventListener("workconnect-user-updated", handleUserUpdated);
     };
   }, [initialize]);
 

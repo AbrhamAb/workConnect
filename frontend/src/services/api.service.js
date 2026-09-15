@@ -105,6 +105,15 @@ export async function apiRequest(path, { method = "GET", body, query, auth = tru
   return payload?.data ?? payload;
 }
 
+export function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Unable to read the selected image."));
+    reader.readAsDataURL(file);
+  });
+}
+
 export function apiGet(path, options = {}) {
   return apiRequest(path, { ...options, method: "GET" });
 }
