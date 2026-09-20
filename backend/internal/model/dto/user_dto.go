@@ -1,0 +1,87 @@
+package dto
+
+type RegisterRequest struct {
+	FullName       string   `json:"fullName"`
+	Email          string   `json:"email"`
+	Phone          string   `json:"phone"`
+	Role           string   `json:"role"`
+	Password       string   `json:"password"`
+	PrimarySkill   string   `json:"primarySkill"`
+	Skills         []string `json:"skills"`
+	ProfileImage   string   `json:"profileImage,omitempty"`
+	ProfilePicture string   `json:"profilePicture,omitempty"`
+}
+
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
+type UpdateProfileRequest struct {
+	ProfileImage string `json:"profileImage"`
+}
+
+type UserLoginResponse struct {
+	ID       int64  `json:"id"`
+	FullName string `json:"fullName"`
+	Role     string `json:"role"`
+	Token    string `json:"token"`
+}
+type WorkerSearchQuery struct {
+	Category string `json:"category"`
+	City     string `json:"city"`
+	Q        string `json:"q"`
+	Sort     string `json:"sort"`
+}
+
+type CreateServiceRequest struct {
+	WorkerID        int64    `json:"workerId"`
+	CategoryID      int64    `json:"categoryId"`
+	Title           string   `json:"title"`
+	Description     string   `json:"description"`
+	LocationAddress string   `json:"locationAddress"`
+	PreferredAt     string   `json:"preferredAt"`
+	BudgetETB       float64  `json:"budgetEtb"`
+	Photos          []string `json:"photos"`
+}
+
+type WorkerDecisionRequest struct {
+	Decision string `json:"decision"`
+}
+
+type UpdateAvailabilityRequest struct {
+	AvailabilityStatus string `json:"availabilityStatus"`
+}
+
+type UploadWorkerDocumentRequest struct {
+	DocumentType  string `json:"documentType"`
+	FileURL       string `json:"fileUrl"`
+	FileName      string `json:"fileName"`
+	MimeType      string `json:"mimeType"`
+	FileSizeBytes int64  `json:"fileSizeBytes"`
+}
+
+type SubmitReviewRequest struct {
+	Rating  int    `json:"rating"`
+	Comment string `json:"comment"`
+}
+
+type InitiatePaymentRequest struct {
+	Provider  string  `json:"provider"`
+	AmountETB float64 `json:"amountEtb"`
+}
+
+type SendMessageRequest struct {
+	Body        string `json:"body"`
+	MessageType string `json:"messageType"`
+}
+
+type ListMessagesQuery struct {
+	Limit    int   `json:"limit"`
+	BeforeID int64 `json:"beforeId"`
+}
