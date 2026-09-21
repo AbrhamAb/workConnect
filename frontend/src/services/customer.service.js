@@ -1,5 +1,6 @@
 import { apiGet } from "./api.service";
 import { getCurrentUser, setCurrentUser } from "./auth.service";
+import { getCurrentCustomerFavorites } from "./favorite.service";
 import { getWorkerById } from "./worker.service";
 
 const PLACEHOLDER_AVATAR = null;
@@ -55,7 +56,9 @@ function normalizeRequest(request) {
   }
 
   const requestId = request.id ?? request.requestId;
-  const preferredAt = request.preferredAt ? new Date(request.preferredAt) : null;
+  const preferredAt = request.preferredAt
+    ? new Date(request.preferredAt)
+    : null;
 
   return {
     id: requestId ? `req-${requestId}` : null,
@@ -65,13 +68,19 @@ function normalizeRequest(request) {
 
     title: request.title || "Service Request",
     description: request.description || "No description provided.",
-    location: request.locationAddress || request.location || "Location not specified",
-    preferredDate: preferredAt && !Number.isNaN(preferredAt.getTime())
-      ? preferredAt.toISOString().split("T")[0]
-      : request.preferredDate || null,
-    preferredTime: preferredAt && !Number.isNaN(preferredAt.getTime())
-      ? preferredAt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
-      : request.preferredTime || null,
+    location:
+      request.locationAddress || request.location || "Location not specified",
+    preferredDate:
+      preferredAt && !Number.isNaN(preferredAt.getTime())
+        ? preferredAt.toISOString().split("T")[0]
+        : request.preferredDate || null,
+    preferredTime:
+      preferredAt && !Number.isNaN(preferredAt.getTime())
+        ? preferredAt.toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : request.preferredTime || null,
     budget: request.budgetEtb ?? request.budget ?? null,
     photos: request.photos || [],
     images: request.images || [],
@@ -137,7 +146,6 @@ async function getBackendSession() {
 }
 
 export async function getCurrentCustomer() {
-  
   const session = await getBackendSession();
 
   if (!session || session.role !== "customer") {
@@ -148,7 +156,6 @@ export async function getCurrentCustomer() {
 }
 
 export async function getCustomerById(customerId) {
-  
   const currentCustomer = await getCurrentCustomer();
   const targetId = toLegacyCustomerId(customerId);
 
@@ -160,7 +167,6 @@ export async function getCustomerById(customerId) {
 }
 
 export async function updateCustomer(updates) {
-  
   const currentUser = getCurrentUser();
 
   if (!currentUser || currentUser.role !== "customer") {
@@ -178,7 +184,6 @@ export async function updateCustomer(updates) {
 }
 
 export async function getCustomerRequests() {
-  
   const session = await getBackendSession();
 
   if (!session || session.role !== "customer") {
@@ -190,20 +195,18 @@ export async function getCustomerRequests() {
 }
 
 export async function getCustomerRequest(requestId) {
-  
   const numericRequestId = Number(String(requestId).replace(/^req-/, ""));
 
   if (Number.isNaN(numericRequestId) || numericRequestId < 1) {
     return null;
   }
 
-    const response = await apiGet(`/customer/requests/${numericRequestId}`);
+  const response = await apiGet(`/customer/requests/${numericRequestId}`);
 
-    return normalizeRequest(response?.request || response);
+  return normalizeRequest(response?.request || response);
 }
 
 export async function getCustomerDashboardData() {
-  
   const customer = await getCurrentCustomer();
 
   if (!customer) {
@@ -224,11 +227,16 @@ export async function getCustomerDashboardData() {
 
   const stats = {
     totalRequests: requests.length,
-    pendingRequests: requests.filter((request) => request.status === "pending").length,
+    pendingRequests: requests.filter((request) => request.status === "pending")
+      .length,
     activeRequests: requests.filter(
-      (request) => request.status === "accepted" || request.status === "in_progress",
+      (request) =>
+        request.status === "accepted" || request.status === "in_progress",
     ).length,
-    completedRequests: requests.filter((request) => request.status === "completed" || request.status === "confirmed").length,
+    completedRequests: requests.filter(
+      (request) =>
+        request.status === "completed" || request.status === "confirmed",
+    ).length,
   };
 
   return {
@@ -242,7 +250,6 @@ export async function getCustomerDashboardData() {
 }
 
 export async function getCustomerProfileData() {
-  
   const customer = await getCurrentCustomer();
 
   if (!customer) {
@@ -270,7 +277,10 @@ export async function getCustomerProfileData() {
     },
     stats: {
       requests: requests.length,
-      completed: requests.filter((request) => request.status === "completed").length,
+      completed: requests.filter(
+        (request) =>
+          request.status === "completed" || request.status === "confirmed",
+      ).length,
       favorites: favoriteWorkers.length,
       memberSince,
     },
@@ -279,18 +289,17 @@ export async function getCustomerProfileData() {
 }
 
 export async function getCustomerFavorites() {
-  
   const customer = await getCurrentCustomer();
 
   if (!customer) {
     return [];
   }
 
-  const requests = await getCustomerRequests();
-  const workerIds = [...new Set(requests.map((request) => request.workerId).filter(Boolean))];
+  const favorites = await getCurrentCustomerFavorites();
 
-  const favorites = await Promise.all(
-    workerIds.slice(0, 3).map(async (workerId) => {
+  const favoriteWorkers = await Promise.all(
+    favorites.map(async (favorite) => {
+      const workerId = favorite.workerId;
       const worker = await getWorkerById(workerId);
 
       if (!worker) {
@@ -307,5 +316,5 @@ export async function getCustomerFavorites() {
     }),
   );
 
-  return favorites.filter(Boolean);
+  return favoriteWorkers.filter(Boolean);
 }
