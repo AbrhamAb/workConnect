@@ -97,7 +97,10 @@ function mapWorkerCard(worker) {
     verified: worker.isVerified ?? worker.verified ?? false,
     availability:
       worker.availabilityStatus || worker.availability || "available",
+    experienceYears: worker.experienceYears ?? worker.experience ?? 0,
     completedJobs: worker.completedJobs ?? 0,
+    responseRate: worker.responseRate ?? 0,
+    activeJobs: worker.activeJobs ?? 0,
 
     profileImage: worker.profileImage || PLACEHOLDER_AVATAR,
     avatar: worker.profileImage || PLACEHOLDER_AVATAR,

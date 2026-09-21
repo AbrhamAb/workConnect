@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 export default function WorkerBookingCard({ worker }) {
-  const isAvailable = worker.availability === "available";
+  const isAvailable = worker?.availability === "available";
 
   return (
     <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
@@ -66,7 +66,7 @@ export default function WorkerBookingCard({ worker }) {
             <p className="font-medium text-gray-900">Response Rate</p>
 
             <p className="text-sm text-gray-500">
-              {worker.responseRate ?? 0}% of requests answered
+              {worker?.responseRate ?? 0}% of requests answered
             </p>
           </div>
         </div>
@@ -94,9 +94,8 @@ export default function WorkerBookingCard({ worker }) {
             <p className="font-medium text-gray-900">Experience</p>
 
             <p className="text-sm text-gray-500">
-              {console.log(worker)}
-              {worker.yearsExperience}{" "}
-              {worker.yearsExperience === 1 ? "year" : "years"}
+              {worker?.yearsExperience ?? 0}{" "}
+              {worker?.yearsExperience === 1 ? "year" : "years"}
             </p>
           </div>
         </div>
@@ -124,7 +123,7 @@ export default function WorkerBookingCard({ worker }) {
             <p className="font-medium text-gray-900">Completed Jobs</p>
 
             <p className="text-sm text-gray-500">
-              {worker.completedJobs ?? 0} jobs completed
+              {worker?.completedJobs ?? 0} jobs completed
             </p>
           </div>
         </div>

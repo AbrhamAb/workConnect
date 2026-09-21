@@ -9,7 +9,7 @@ export default function WorkerAbout({ worker }) {
 
   const metrics = [
     {
-      value: worker?.yearsExperience || "0+",
+      value: `${worker?.yearsExperience ?? 0}+`,
       label: "YEARS EXP.",
     },
     {

@@ -161,7 +161,7 @@ export default function WorkerProfilePage() {
 
       favorite: favoriteIds.has(profile.worker.id),
 
-      available: profile.worker.availability === "available",
+      availability: profile.worker.availability || "available",
 
       rating: reviewData.rating.rating,
 
@@ -171,11 +171,13 @@ export default function WorkerProfilePage() {
 
       price: "100 ETB /hr",
 
-      yearsExperience: `${profile.worker.experienceYears || 0}+`,
+      yearsExperience: profile.worker.experienceYears || 0,
 
       completedJobs: profile.worker.completedJobs || 0,
 
       successRate: `${profile.worker.responseRate || 0}%`,
+
+      responseRate: profile.worker.responseRate || 0,
 
       activeJobs: profile.worker.activeJobs || 0,
 

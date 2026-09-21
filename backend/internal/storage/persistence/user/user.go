@@ -415,9 +415,41 @@ func (s *sqlStore) GetWorkerDetails(ctx context.Context, workerID int64) (db.Wor
 			wp.rating_count,
 			wp.availability_status,
 			wp.is_verified,
-			wp.completed_jobs,
+			GREATEST(
+				wp.completed_jobs,
+				(
+					SELECT COUNT(*)::int
+					FROM service_requests completed_requests
+					WHERE completed_requests.worker_id = wp.id
+					  AND completed_requests.status IN ('completed', 'confirmed')
+				)
+			) AS completed_jobs,
 			wp.experience_years,
-			wp.response_rate,
+			GREATEST(
+				wp.response_rate,
+				COALESCE(
+					ROUND(
+						100.0 * (
+							SELECT COUNT(*)
+							FROM service_requests answered_requests
+							WHERE answered_requests.worker_id = wp.id
+							  AND answered_requests.status IN (
+								'accepted', 'declined', 'rejected', 'in_progress',
+								'completed', 'confirmed'
+							  )
+						) / NULLIF(
+							(
+								SELECT COUNT(*)
+								FROM service_requests total_requests
+								WHERE total_requests.worker_id = wp.id
+							),
+							0
+						),
+						2
+					),
+					0
+				)
+			) AS response_rate,
 			(
 				SELECT COUNT(*)::int
 				FROM service_requests active_requests
