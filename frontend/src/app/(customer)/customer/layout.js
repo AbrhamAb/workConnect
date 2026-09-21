@@ -26,6 +26,7 @@ export default function CustomerLayout({ children }) {
         <TopNav
           links={customerLinks}
           searchPlaceholder="Search workers..."
+          searchHref="/customer/workers"
           rightActions={
             <>
               <button

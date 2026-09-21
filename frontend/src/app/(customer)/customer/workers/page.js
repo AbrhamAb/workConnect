@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { Avatar } from "@/components/avatar";
 import { Card } from "@/components/card";
@@ -26,14 +27,17 @@ const categories = [
 ];
 
 export default function WorkersPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [workers, setWorkers] = useState([]);
   const [favoriteIds, setFavoriteIds] = useState(new Set());
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [sortBy, setSortBy] = useState("default");
+  const search = searchParams.get("search") || "";
 
   useEffect(() => {
     let mounted = true;
@@ -119,7 +123,7 @@ export default function WorkersPage() {
       filtered = filtered.filter((worker) => favoriteIds.has(worker.id));
     }
 
-    return filtered.map((worker) => ({
+    const mappedWorkers = filtered.map((worker) => ({
       id: worker.id,
       workerId: worker.workerId,
       name: worker.fullName,
@@ -130,7 +134,19 @@ export default function WorkersPage() {
       image: worker.profileImage || null,
       favorite: favoriteIds.has(worker.id),
     }));
-  }, [workers, search, selectedCategory, favoriteIds]);
+
+    if (sortBy === "rating") {
+      mappedWorkers.sort((first, second) => second.rating - first.rating);
+    }
+
+    if (sortBy === "name") {
+      mappedWorkers.sort((first, second) =>
+        (first.name || "").localeCompare(second.name || ""),
+      );
+    }
+
+    return mappedWorkers;
+  }, [workers, search, selectedCategory, favoriteIds, sortBy]);
   return (
     <div className="space-y-8">
       <section>
@@ -164,30 +180,53 @@ export default function WorkersPage() {
             type="text"
             placeholder="Search workers..."
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => {
+              const query = event.target.value.trim();
+
+              router.replace(
+                query
+                  ? `/customer/workers?search=${encodeURIComponent(query)}`
+                  : "/customer/workers",
+              );
+            }}
             className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 shadow-sm outline-none transition focus:border-[#1A362D]"
           />
         </div>
       </section>
 
-      <section className="flex flex-wrap gap-3">
-        {categories.map((category) => {
-          const active = selectedCategory === category;
+      <section className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap gap-3">
+          {categories.map((category) => {
+            const active = selectedCategory === category;
 
-          return (
-            <button
-              key={`${category}-${selectedCategory === category ? "active" : "inactive"}`}
-              onClick={() => setSelectedCategory(category)}
-              className={`rounded-full px-5 py-2 text-sm font-medium transition ${
-                active
-                  ? "bg-[#1A362D] text-white"
-                  : "bg-white text-gray-600 shadow-sm hover:bg-gray-100"
-              }`}
-            >
-              {category}
-            </button>
-          );
-        })}
+            return (
+              <button
+                key={`${category}-${selectedCategory === category ? "active" : "inactive"}`}
+                onClick={() => setSelectedCategory(category)}
+                className={`rounded-full px-5 py-2 text-sm font-medium transition ${
+                  active
+                    ? "bg-[#1A362D] text-white"
+                    : "bg-white text-gray-600 shadow-sm hover:bg-gray-100"
+                }`}
+              >
+                {category}
+              </button>
+            );
+          })}
+        </div>
+
+        <label className="ml-auto flex items-center gap-2 text-sm text-gray-600">
+          <span>Sort by</span>
+          <select
+            value={sortBy}
+            onChange={(event) => setSortBy(event.target.value)}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm outline-none focus:border-[#1A362D]"
+          >
+            <option value="default">Recommended</option>
+            <option value="rating">Highest rating</option>
+            <option value="name">Name A-Z</option>
+          </select>
+        </label>
       </section>
 
       <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
