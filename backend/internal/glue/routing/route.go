@@ -32,6 +32,7 @@ func NewRouter(handler rest.Handler) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.CORS)
 	r.Use(chimiddleware.StripSlashes)
+	r.Get("/health", handler.HealthCheck)
 
 	r.Route("/api", func(api chi.Router) {
 		api.Route("/v1", func(v1 chi.Router) {
