@@ -20,8 +20,11 @@ func RegisterWorkConnectRoutes(r chi.Router, handler rest.Handler) {
 			Handler: handler.HealthCheck,
 		},
 		{
-			Method:  http.MethodGet,
-			Path:    "/workers",
+			Method: http.MethodGet,
+			Path:   "/workers",
+			Middlewares: []func(http.Handler) http.Handler{
+				authMiddleware,
+			},
 			Handler: handler.ListWorkers,
 		},
 		{
@@ -73,6 +76,15 @@ func RegisterWorkConnectRoutes(r chi.Router, handler rest.Handler) {
 				Handler: handler.UpdateProfileImage,
 				Middlewares: []func(http.Handler) http.Handler{
 					authMiddleware,
+				},
+			},
+			{
+				Method:  http.MethodPatch,
+				Path:    "/me/worker-profile",
+				Handler: handler.UpdateWorkerProfile,
+				Middlewares: []func(http.Handler) http.Handler{
+					authMiddleware,
+					middleware.RequireRoles(db.RoleWorker),
 				},
 			},
 		})

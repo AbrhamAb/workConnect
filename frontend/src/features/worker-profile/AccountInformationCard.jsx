@@ -7,7 +7,7 @@ import { Button } from "@/components/button";
 
 import { updateWorker } from "@/services/worker.service";
 import { validateSchema } from "@/validation/helpers";
-import { workerProfileSchema } from "@/validation/worker/profile";
+import { workerAccountSchema } from "@/validation/worker/profile";
 
 export function AccountInformationCard({ worker, onWorkerUpdated }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -25,6 +25,7 @@ export function AccountInformationCard({ worker, onWorkerUpdated }) {
   }));
 
   const [errors, setErrors] = useState({});
+  const [saveError, setSaveError] = useState("");
 
   function resetForm() {
     setFormData({
@@ -42,6 +43,7 @@ export function AccountInformationCard({ worker, onWorkerUpdated }) {
   function handleEdit() {
     resetForm();
     setErrors({});
+    setSaveError("");
     setIsEditing(true);
   }
 
@@ -64,11 +66,12 @@ export function AccountInformationCard({ worker, onWorkerUpdated }) {
   function handleCancel() {
     resetForm();
     setErrors({});
+    setSaveError("");
     setIsEditing(false);
   }
 
   async function handleSave() {
-    const validation = await validateSchema(workerProfileSchema, formData);
+    const validation = await validateSchema(workerAccountSchema, formData);
 
     if (!validation.isValid) {
       setErrors(validation.errors);
@@ -78,6 +81,7 @@ export function AccountInformationCard({ worker, onWorkerUpdated }) {
     try {
       setIsSaving(true);
       setErrors({});
+      setSaveError("");
 
       const updatedWorker = await updateWorker({
         fullName: formData.fullName,
@@ -90,7 +94,9 @@ export function AccountInformationCard({ worker, onWorkerUpdated }) {
         setIsEditing(false);
       }
     } catch (error) {
-      console.error(error);
+      setSaveError(
+        error.message || "Failed to update your account information.",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -111,11 +117,7 @@ export function AccountInformationCard({ worker, onWorkerUpdated }) {
 
         {isEditing ? (
           <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              onClick={handleCancel}
-              disabled={isSaving}
-            >
+            <Button variant="ghost" onClick={handleCancel} disabled={isSaving}>
               Cancel
             </Button>
 
@@ -129,6 +131,12 @@ export function AccountInformationCard({ worker, onWorkerUpdated }) {
           </Button>
         )}
       </div>
+
+      {saveError && (
+        <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {saveError}
+        </div>
+      )}
 
       <div className="space-y-5">
         <div>

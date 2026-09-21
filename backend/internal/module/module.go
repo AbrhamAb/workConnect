@@ -20,6 +20,7 @@ type WorkConnectService interface {
 	ChangePassword(ctx context.Context, userID int64, req dto.ChangePasswordRequest) error
 	GetProfile(ctx context.Context, userID int64) (db.User, error)
 	UpdateProfileImage(ctx context.Context, userID int64, req dto.UpdateProfileRequest) (db.User, error)
+	UpdateWorkerProfile(ctx context.Context, userID int64, req dto.UpdateWorkerProfileRequest) (db.User, error)
 	DeleteAccount(ctx context.Context, userID int64) error
 	GetUserByID(ctx context.Context, userID int64) (db.User, error)
 	ListUsers(ctx context.Context) ([]db.User, error)

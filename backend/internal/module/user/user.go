@@ -181,6 +181,20 @@ func (m *WorkConnectModule) UpdateProfileImage(ctx context.Context, userID int64
 	return user, nil
 }
 
+func (m *WorkConnectModule) UpdateWorkerProfile(ctx context.Context, userID int64, req dto.UpdateWorkerProfileRequest) (db.User, error) {
+	if err := req.Validate(); err != nil {
+		return db.User{}, err
+	}
+
+	user, err := m.store.UpdateWorkerProfile(ctx, userID, req)
+	if err != nil {
+		return db.User{}, err
+	}
+
+	user.PasswordHash = ""
+	return user, nil
+}
+
 func (m *WorkConnectModule) DeleteAccount(ctx context.Context, userID int64) error {
 	if userID <= 0 {
 		return apperrors.ErrForbidden

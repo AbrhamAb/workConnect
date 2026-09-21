@@ -27,3 +27,17 @@ export const workerProfileSchema = Yup.object({
 
   skills: Yup.array().of(Yup.string().trim()).min(1, "Add at least one skill."),
 });
+
+export const workerAccountSchema = workerProfileSchema.pick([
+  "fullName",
+  "email",
+  "phone",
+]);
+
+export const workerProfessionalSchema = workerProfileSchema.pick([
+  "city",
+  "primarySkill",
+  "experience",
+  "bio",
+  "skills",
+]);

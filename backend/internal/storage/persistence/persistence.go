@@ -12,6 +12,7 @@ type Store interface {
 	GetUserByID(ctx context.Context, userID int64) (db.User, error)
 	UpdatePasswordHash(ctx context.Context, userID int64, passwordHash string) error
 	UpdateProfileImage(ctx context.Context, userID int64, profileImage string) (db.User, error)
+	UpdateWorkerProfile(ctx context.Context, userID int64, req dto.UpdateWorkerProfileRequest) (db.User, error)
 	DeactivateUser(ctx context.Context, userID int64) error
 	ListUsers(ctx context.Context) ([]db.User, error)
 	CreateWorkerProfile(ctx context.Context, userID int64, primarySkill string, skills []string) error

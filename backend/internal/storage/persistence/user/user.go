@@ -82,6 +82,83 @@ func (s *sqlStore) GetUserByEmail(ctx context.Context, email string) (db.User, e
 	return user, nil
 }
 
+func (s *sqlStore) UpdateWorkerProfile(ctx context.Context, userID int64, req dto.UpdateWorkerProfileRequest) (db.User, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return db.User{}, err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(ctx, `
+		UPDATE users
+		SET full_name = COALESCE($1, full_name),
+		    email = COALESCE($2, email),
+		    phone = COALESCE($3, phone),
+		    updated_at = NOW()
+		WHERE id = $4 AND role = 'worker'
+	`, req.FullName, req.Email, req.Phone, userID)
+	if err != nil {
+		return db.User{}, err
+	}
+
+	var workerID int64
+	err = tx.QueryRowContext(ctx, `
+		SELECT id FROM worker_profiles WHERE user_id = $1
+	`, userID).Scan(&workerID)
+	if err != nil {
+		return db.User{}, err
+	}
+
+	_, err = tx.ExecContext(ctx, `
+		UPDATE worker_profiles
+		SET city = COALESCE($1, city),
+		    bio = COALESCE($2, bio),
+		    experience_years = COALESCE($3, experience_years),
+		    updated_at = NOW()
+		WHERE id = $4
+	`, req.City, req.Bio, req.Experience, workerID)
+	if err != nil {
+		return db.User{}, err
+	}
+
+	if req.PrimarySkill != nil || req.Skills != nil {
+		_, err = tx.ExecContext(ctx, `DELETE FROM worker_skills WHERE worker_id = $1`, workerID)
+		if err != nil {
+			return db.User{}, err
+		}
+
+		categoryNames := make([]string, 0, len(req.Skills)+1)
+		if req.PrimarySkill != nil {
+			categoryNames = append(categoryNames, *req.PrimarySkill)
+		}
+		categoryNames = append(categoryNames, req.Skills...)
+
+		seen := make(map[string]bool)
+		for _, skill := range categoryNames {
+			slug := normalizeCategorySlug(skill)
+			if slug == "" || seen[slug] {
+				continue
+			}
+			seen[slug] = true
+
+			_, err = tx.ExecContext(ctx, `
+				INSERT INTO worker_skills (worker_id, category_id)
+				SELECT $1, id FROM service_categories WHERE slug = $2
+				ON CONFLICT DO NOTHING
+			`, workerID, slug)
+			if err != nil {
+				return db.User{}, err
+			}
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return db.User{}, err
+	}
+
+	return s.GetUserByID(ctx, userID)
+}
+
 func (s *sqlStore) GetUserByID(ctx context.Context, userID int64) (db.User, error) {
 	q := `
 		SELECT id, full_name, email, phone, role, is_active, password_hash, profile_image_url, created_at, updated_at

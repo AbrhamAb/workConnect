@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from "./api.service";
+import { apiGet, apiPatch, apiPost } from "./api.service";
 import { getCurrentUser, setCurrentUser } from "./auth.service";
 import { getPortfolioByWorker } from "./portfolio.service";
 import { getWorkerRating } from "./review.service";
@@ -90,6 +90,7 @@ function mapWorkerCard(worker) {
       worker.primarySkill ||
       "Skilled professional",
     city: worker.city || "Addis Ababa",
+    experience: worker.experienceYears ?? worker.experience ?? 0,
     hourlyRateEtb: worker.hourlyRateEtb ?? worker.hourlyRateETB ?? 0,
     rating: worker.ratingAverage ?? worker.rating ?? 0,
     totalReviews: worker.ratingCount ?? worker.totalReviews ?? 0,
@@ -320,20 +321,22 @@ export async function updateWorker(updates) {
     return null;
   }
 
+  const response = await apiPatch("/auth/me/worker-profile", updates);
+  const updatedUser = response?.user || response;
   const workerProfileId =
-    currentUser.workerProfileId ?? toWorkerProfileId(currentUser.id);
-  const updatedWorker = {
-    ...(await getWorkerById(workerProfileId)),
-    ...updates,
-  };
+    response?.workerProfileId ??
+    currentUser.workerProfileId ??
+    toWorkerProfileId(currentUser.id);
 
   setCurrentUser({
     ...currentUser,
-    ...updates,
+    ...updatedUser,
     workerProfileId,
   });
 
-  return mergeCurrentSession(updatedWorker);
+  const updatedWorker = await getWorkerById(workerProfileId);
+
+  return mergeCurrentSession({ ...updatedWorker, ...updates });
 }
 
 export async function getWorkerRequests() {

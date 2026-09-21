@@ -26,6 +26,17 @@ type UpdateProfileRequest struct {
 	ProfileImage string `json:"profileImage"`
 }
 
+type UpdateWorkerProfileRequest struct {
+	FullName     *string  `json:"fullName,omitempty"`
+	Email        *string  `json:"email,omitempty"`
+	Phone        *string  `json:"phone,omitempty"`
+	PrimarySkill *string  `json:"primarySkill,omitempty"`
+	Skills       []string `json:"skills,omitempty"`
+	City         *string  `json:"city,omitempty"`
+	Bio          *string  `json:"bio,omitempty"`
+	Experience   *int     `json:"experience,omitempty"`
+}
+
 type UserLoginResponse struct {
 	ID       int64  `json:"id"`
 	FullName string `json:"fullName"`

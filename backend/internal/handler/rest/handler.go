@@ -16,6 +16,7 @@ type Handler interface {
 	Me(w http.ResponseWriter, r *http.Request)
 	DeleteAccount(w http.ResponseWriter, r *http.Request)
 	UpdateProfileImage(w http.ResponseWriter, r *http.Request)
+	UpdateWorkerProfile(w http.ResponseWriter, r *http.Request)
 	ListWorkers(w http.ResponseWriter, r *http.Request)
 	GetWorkerProfile(w http.ResponseWriter, r *http.Request)
 	AdminUsers(w http.ResponseWriter, r *http.Request)

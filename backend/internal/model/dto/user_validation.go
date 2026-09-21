@@ -1,6 +1,7 @@
 package dto
 
 import (
+	stderrs "errors"
 	"net/mail"
 	"strings"
 	"task-management-backend/internal/model/db"
@@ -108,6 +109,25 @@ func (r CreateServiceRequest) Validate() error {
 func (r UpdateProfileRequest) Validate() error {
 	return validation.ValidateStruct(&r,
 		validation.Field(&r.ProfileImage, validation.Required, validation.Length(1, 8*1024*1024)),
+	)
+}
+
+func (r UpdateWorkerProfileRequest) Validate() error {
+	if r.FullName == nil && r.Email == nil && r.Phone == nil &&
+		r.PrimarySkill == nil && r.Skills == nil && r.City == nil &&
+		r.Bio == nil && r.Experience == nil {
+		return stderrs.New("at least one worker profile field is required")
+	}
+
+	return validation.ValidateStruct(&r,
+		validation.Field(&r.FullName, validation.When(r.FullName != nil, validation.Length(3, 100))),
+		validation.Field(&r.Email, validation.When(r.Email != nil, validation.Length(3, 255))),
+		validation.Field(&r.Phone, validation.When(r.Phone != nil, validation.Length(1, 50))),
+		validation.Field(&r.PrimarySkill, validation.When(r.PrimarySkill != nil, validation.Length(1, 100))),
+		validation.Field(&r.City, validation.When(r.City != nil, validation.Length(1, 100))),
+		validation.Field(&r.Bio, validation.When(r.Bio != nil, validation.Length(0, 500))),
+		validation.Field(&r.Experience, validation.When(r.Experience != nil, validation.Min(0))),
+		validation.Field(&r.Skills, validation.When(r.Skills != nil, validation.Length(1, 20))),
 	)
 }
 

@@ -7,7 +7,7 @@ import { Button } from "@/components/button";
 
 import { updateWorker } from "@/services/worker.service";
 import { validateSchema } from "@/validation/helpers";
-import { workerProfileSchema } from "@/validation/worker/profile";
+import { workerProfessionalSchema } from "@/validation/worker/profile";
 
 export function ProfessionalProfileCard({ worker, onWorkerUpdated }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -90,7 +90,7 @@ export function ProfessionalProfileCard({ worker, onWorkerUpdated }) {
   }
 
   async function handleSave() {
-    const validation = await validateSchema(workerProfileSchema, formData);
+    const validation = await validateSchema(workerProfessionalSchema, formData);
 
     if (!validation.isValid) {
       setErrors(validation.errors);

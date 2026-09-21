@@ -77,7 +77,8 @@ export default function WorkerProfilePage() {
         worker.bio ||
         "This professional is ready to help with your next project.",
       verified: worker.verified || false,
-      availability: worker.availability === "available" ? "Available" : "Busy",
+      availability:
+        worker.availability || worker.availabilityStatus || "available",
       rating: worker.rating || 0,
       totalReviews: worker.totalReviews || 0,
       portfolioCount: portfolioItems.length,
@@ -112,7 +113,9 @@ export default function WorkerProfilePage() {
             onPhotoSelected={async (file) => {
               try {
                 const profileImage = await fileToDataUrl(file);
-                const response = await apiPatch("/auth/me/profile-image", { profileImage });
+                const response = await apiPatch("/auth/me/profile-image", {
+                  profileImage,
+                });
                 const updatedUser = response.user || response;
                 setCurrentUser({ ...getCurrentUser(), ...updatedUser });
                 setWorker((current) => ({ ...current, profileImage }));
